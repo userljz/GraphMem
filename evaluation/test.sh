@@ -4,6 +4,7 @@ export TOKENIZERS_PARALLELISM=true
 export PYTHONPATH=/workspace/Tool-Star:$PYTHONPATH
 # module load cuda/11.8
 
+
 python run.py \
     --model_path dongguanting/Tool-Star-Qwen-1.5B \
     --dataset_name math \
@@ -11,12 +12,37 @@ python run.py \
     --gpu_use 0.8 \
     --max_tokens 31384 \
     --max_input_len 31384 \
-    --output_path 0905exp_math_result_mem.json \
-    --counts 50 \
+    --output_path 0919exp_math_result_mem_q_a_200.json \
+    --counts 200 \
     --batch_size 10 \
     --find_nodes "q_a" \
     --use_memory \
-    &> ./output_log/0919_q_a.txt
-    # --use_memory
-    # --use_debug 
+    &> ./output_log/0919_q_a_200.txt
+    
+
+python run.py \
+    --model_path dongguanting/Tool-Star-Qwen-1.5B \
+    --dataset_name math \
+    --task math \
+    --gpu_use 0.8 \
+    --max_tokens 31384 \
+    --max_input_len 31384 \
+    --output_path 0919exp_math_result_nomem_200.json \
+    --counts 200 \
+    --batch_size 10 \
+    &> ./output_log/0919_nomem_200.txt
+
+python run.py \
+    --model_path dongguanting/Tool-Star-Qwen-1.5B \
+    --dataset_name math \
+    --task math \
+    --gpu_use 0.8 \
+    --max_tokens 31384 \
+    --max_input_len 31384 \
+    --output_path 0919exp_math_result_mem_q_200.json \
+    --counts 200 \
+    --batch_size 10 \
+    --find_nodes "q" \
+    --use_memory \
+    &> ./output_log/0919_q_200.txt
 

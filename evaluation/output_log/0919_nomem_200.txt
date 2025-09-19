@@ -1,0 +1,260 @@
+INFO 09-19 05:04:49 [__init__.py:244] Automatically detected platform rocm.
+INFO 09-19 05:05:10 [config.py:822] This model supports multiple tasks: {'score', 'generate', 'classify', 'embed', 'reward'}. Defaulting to 'generate'.
+INFO 09-19 05:05:10 [arg_utils.py:1644] rocm is experimental on VLLM_USE_V1=1. Falling back to V0 Engine.
+INFO 09-19 05:05:20 [config.py:1974] Disabled the custom all-reduce kernel because it is not supported on current platform.
+WARNING 09-19 05:05:20 [rocm.py:288] To see benefits of async output processing, enable CUDA graph. Since, enforce-eager is enabled, async output processor cannot be used
+INFO 09-19 05:05:20 [llm_engine.py:231] Initializing a V0 LLM engine (v0.9.0.2.dev108+g71faa1880) with config: model='dongguanting/Tool-Star-Qwen-1.5B', speculative_config=None, tokenizer='dongguanting/Tool-Star-Qwen-1.5B', skip_tokenizer_init=False, tokenizer_mode=auto, revision=None, override_neuron_config={}, tokenizer_revision=None, trust_remote_code=True, dtype=torch.bfloat16, max_seq_len=31384, download_dir=None, load_format=LoadFormat.AUTO, tensor_parallel_size=1, pipeline_parallel_size=1, disable_custom_all_reduce=True, quantization=None, enforce_eager=True, kv_cache_dtype=auto,  device_config=cuda, decoding_config=DecodingConfig(backend='auto', disable_fallback=False, disable_any_whitespace=False, disable_additional_properties=False, reasoning_backend=''), observability_config=ObservabilityConfig(show_hidden_metrics_for_version=None, otlp_traces_endpoint=None, collect_detailed_traces=None), seed=0, served_model_name=dongguanting/Tool-Star-Qwen-1.5B, num_scheduler_steps=1, multi_step_stream_outputs=True, enable_prefix_caching=None, chunked_prefill_enabled=False, use_async_output_proc=False, pooler_config=None, compilation_config={"level":0,"debug_dump_path":"","cache_dir":"","backend":"","custom_ops":[],"splitting_ops":[],"use_inductor":true,"compile_sizes":[],"inductor_compile_config":{"enable_auto_functionalized_v2":false},"inductor_passes":{},"use_cudagraph":false,"cudagraph_num_of_warmups":0,"cudagraph_capture_sizes":[],"cudagraph_copy_inputs":false,"full_cuda_graph":false,"max_capture_size":0,"local_cache_dir":null}, use_cached_outputs=False, 
+INFO 09-19 05:05:22 [rocm.py:233] Using ROCmFlashAttention backend.
+INFO 09-19 05:05:22 [parallel_state.py:1065] rank 0 in world size 1 is assigned as DP rank 0, PP rank 0, TP rank 0, EP rank 0
+INFO 09-19 05:05:22 [model_runner.py:1171] Starting to load model dongguanting/Tool-Star-Qwen-1.5B...
+WARNING 09-19 05:05:22 [rocm.py:338] Model architecture 'Qwen2ForCausalLM' is partially supported by ROCm: Sliding window attention (SWA) is not yet supported in Triton flash attention. For half-precision SWA support, please use CK flash attention by setting `VLLM_USE_TRITON_FLASH_ATTN=0`
+INFO 09-19 05:05:23 [weight_utils.py:292] Using model weights format ['*.safetensors']
+INFO 09-19 05:05:24 [weight_utils.py:345] No model.safetensors.index.json found in remote.
+Loading safetensors checkpoint shards:   0% Completed | 0/1 [00:00<?, ?it/s]
+Loading safetensors checkpoint shards: 100% Completed | 1/1 [00:01<00:00,  1.20s/it]
+Loading safetensors checkpoint shards: 100% Completed | 1/1 [00:01<00:00,  1.20s/it]
+
+INFO 09-19 05:05:25 [default_loader.py:272] Loading weights took 1.34 seconds
+INFO 09-19 05:05:25 [model_runner.py:1203] Model loading took 3.1953 GiB and 2.800592 seconds
+/usr/local/lib/python3.12/dist-packages/vllm/model_executor/layers/utils.py:76: UserWarning: Failed validator: GCN_ARCH_NAME (Triggered internally at /app/pytorch/aten/src/ATen/hip/tunable/Tunable.cpp:366.)
+  return torch.nn.functional.linear(x, weight, bias)
+INFO 09-19 05:05:31 [worker.py:294] Memory profiling takes 5.33 seconds
+INFO 09-19 05:05:31 [worker.py:294] the current vLLM instance can use total_gpu_memory (63.98GiB) x gpu_memory_utilization (0.80) = 51.19GiB
+INFO 09-19 05:05:31 [worker.py:294] model weights take 3.20GiB; non_torch_memory takes 0.41GiB; PyTorch activation peak memory takes 2.04GiB; the rest of the memory reserved for KV Cache is 45.55GiB.
+INFO 09-19 05:05:31 [executor_base.py:113] # rocm blocks: 106609, # CPU blocks: 9362
+INFO 09-19 05:05:31 [executor_base.py:118] Maximum concurrency for 31384 tokens per request: 54.35x
+INFO 09-19 05:05:32 [llm_engine.py:429] init engine (profile, create kv cache, warmup model) took 6.96 seconds
+Do Not Use Memory
+{
+    "dataset": "math",
+    "output": "0919exp_math_result_nomem_200.json"
+}
+dataset math all counts: 200, batch size: 10, bath counts: 20
+Processing batches:   0%|          | 0/20 [00:00<?, ?it/s]Processing batches:   5%|▌         | 1/20 [00:27<08:45, 27.66s/it]batch 0, data 0: refine result: 420
+batch 0, data 1: refine result: \frac{1}{9}
+batch 0, data 2: refine result: 3400
+batch 0, data 3: refine result: 3:30
+batch 0, data 4: refine result: \frac{93}{31}
+batch 0, data 5: refine result: 100
+batch 0, data 6: refine result: \frac{5}{6}
+batch 0, data 7: refine result: 18
+batch 0, data 8: refine result: 1
+batch 0, data 9: refine result: -4
+>>> Accu:0.5
+Processing batches:  10%|█         | 2/20 [00:46<06:49, 22.76s/it]batch 1, data 0: refine result: 48
+batch 1, data 1: refine result: 27
+batch 1, data 2: refine result: 132
+batch 1, data 3: refine result: 10
+batch 1, data 4: refine result: 6
+batch 1, data 5: refine result: 125
+batch 1, data 6: refine result: 1
+batch 1, data 7: refine result: 6290000
+batch 1, data 8: refine result: 1
+batch 1, data 9: refine result: 0.5
+>>> Accu:0.4
+Processing batches:  15%|█▌        | 3/20 [01:18<07:32, 26.64s/it]batch 2, data 0: refine result: 76
+batch 2, data 1: refine result: 20
+batch 2, data 2: refine result: 4a - 2
+batch 2, data 3: refine result: 97
+batch 2, data 4: refine result: 12\,\frac{3}{5}
+batch 2, data 5: refine result: 50
+batch 2, data 6: refine result: 6
+batch 2, data 7: refine result: 198
+batch 2, data 8: refine result: 1
+batch 2, data 9: refine result: \frac{7}{8}
+>>> Accu:0.36666666666666664
+Processing batches:  20%|██        | 4/20 [01:36<06:15, 23.45s/it]batch 3, data 0: refine result: 76
+batch 3, data 1: refine result: 6
+batch 3, data 2: refine result: -3969
+batch 3, data 3: refine result: 4t
+batch 3, data 4: refine result: \frac{11}{100}
+batch 3, data 5: refine result: \frac{5}{8}
+batch 3, data 6: refine result: 10
+batch 3, data 7: refine result: 11
+batch 3, data 8: refine result: 120
+batch 3, data 9: refine result: 60
+>>> Accu:0.45
+Processing batches:  25%|██▌       | 5/20 [02:03<06:10, 24.67s/it]batch 4, data 0: refine result: 20
+batch 4, data 1: refine result: 32
+batch 4, data 2: refine result: 27
+batch 4, data 3: refine result: 7\pi
+batch 4, data 4: refine result: 28
+batch 4, data 5: refine result: 36
+batch 4, data 6: refine result: \frac{4}{11}
+batch 4, data 7: refine result: 103.5
+batch 4, data 8: refine result: 6
+batch 4, data 9: refine result: \frac{27}{128}
+>>> Accu:0.48
+Processing batches:  30%|███       | 6/20 [02:26<05:38, 24.17s/it]batch 5, data 0: refine result: 132
+batch 5, data 1: refine result: 14
+batch 5, data 2: refine result: 18
+batch 5, data 3: refine result: 900000000
+batch 5, data 4: refine result: 1200
+batch 5, data 5: refine result: 144
+batch 5, data 6: refine result: \frac{16}{81}
+batch 5, data 7: refine result: -49
+batch 5, data 8: refine result: 1.4
+batch 5, data 9: refine result: 3250
+>>> Accu:0.5
+Processing batches:  35%|███▌      | 7/20 [02:55<05:33, 25.67s/it]batch 6, data 0: refine result: \frac{10089}{24750}
+batch 6, data 1: refine result: 50
+batch 6, data 2: refine result: 9
+batch 6, data 3: refine result: 130
+batch 6, data 4: refine result: 12.5\%
+batch 6, data 5: refine result: 37.50
+batch 6, data 6: refine result: 5
+batch 6, data 7: refine result: 8
+batch 6, data 8: refine result: \frac{2}{27}
+batch 6, data 9: refine result: 24
+>>> Accu:0.5142857142857142
+Processing batches:  40%|████      | 8/20 [03:20<05:05, 25.44s/it]batch 7, data 0: refine result: 6
+batch 7, data 1: refine result: 9
+batch 7, data 2: refine result: 10000
+batch 7, data 3: refine result: 385
+batch 7, data 4: refine result: 75
+batch 7, data 5: refine result: 13.18
+batch 7, data 6: refine result: 20
+batch 7, data 7: refine result: -\frac{40}{153}
+batch 7, data 8: refine result: 7200
+batch 7, data 9: refine result: 15
+>>> Accu:0.5125
+Processing batches:  45%|████▌     | 9/20 [03:41<04:22, 23.91s/it]batch 8, data 0: refine result: 80
+batch 8, data 1: refine result: E
+batch 8, data 2: refine result: 28
+batch 8, data 3: refine result: -\frac{40}{71}
+batch 8, data 4: refine result: 130
+batch 8, data 5: refine result: 40
+batch 8, data 6: refine result: 14
+batch 8, data 7: refine result: 1\frac{9}{10}
+batch 8, data 8: refine result: 123
+batch 8, data 9: refine result: 2
+>>> Accu:0.5111111111111111
+Processing batches:  50%|█████     | 10/20 [04:10<04:16, 25.63s/it]batch 9, data 0: refine result: 108
+batch 9, data 1: refine result: 10
+batch 9, data 2: refine result: 15
+batch 9, data 3: refine result: -1
+batch 9, data 4: refine result: 29
+batch 9, data 5: refine result: 10
+batch 9, data 6: refine result: 190
+batch 9, data 7: refine result: \frac{3}{50}
+batch 9, data 8: refine result: 4
+batch 9, data 9: refine result: 9
+>>> Accu:0.5
+Processing batches:  55%|█████▌    | 11/20 [04:36<03:50, 25.63s/it]batch 10, data 0: refine result: 420
+batch 10, data 1: refine result: \frac{1}{6}
+batch 10, data 2: refine result: 45
+batch 10, data 3: refine result: 5
+batch 10, data 4: refine result: 15
+batch 10, data 5: refine result: 18
+batch 10, data 6: refine result: 8\frac{4}{7}
+batch 10, data 7: refine result: 0
+batch 10, data 8: refine result: 0
+batch 10, data 9: refine result: -7
+>>> Accu:0.4909090909090909
+Processing batches:  60%|██████    | 12/20 [05:04<03:31, 26.47s/it]batch 11, data 0: refine result: 120
+batch 11, data 1: refine result: 39
+batch 11, data 2: refine result: \frac{1}{36}
+batch 11, data 3: refine result: 0
+batch 11, data 4: refine result: \frac{3}{4}
+batch 11, data 5: refine result: 7.50
+batch 11, data 6: refine result: 3
+batch 11, data 7: refine result: 2.5
+batch 11, data 8: refine result: 88
+batch 11, data 9: refine result: 73
+>>> Accu:0.4666666666666667
+Processing batches:  65%|██████▌   | 13/20 [05:36<03:16, 28.04s/it]batch 12, data 0: refine result: 156
+batch 12, data 1: refine result: 564
+batch 12, data 2: refine result: 6
+batch 12, data 3: refine result: 97
+batch 12, data 4: refine result: 56
+batch 12, data 5: refine result: 1
+batch 12, data 6: refine result: 37.7
+batch 12, data 7: refine result: 7
+batch 12, data 8: refine result: 9c + 6
+batch 12, data 9: refine result: 14
+>>> Accu:0.46923076923076923
+Processing batches:  70%|███████   | 14/20 [06:00<02:40, 26.82s/it]batch 13, data 0: refine result: 8
+batch 13, data 1: refine result: 8
+batch 13, data 2: refine result: 2
+batch 13, data 3: refine result: 14
+batch 13, data 4: refine result: 24
+batch 13, data 5: refine result: 60
+batch 13, data 6: refine result: 18
+batch 13, data 7: refine result: 3
+batch 13, data 8: refine result: 17
+batch 13, data 9: refine result: 6
+>>> Accu:0.4714285714285714
+Processing batches:  75%|███████▌  | 15/20 [06:30<02:19, 27.80s/it]batch 14, data 0: refine result: 15
+batch 14, data 1: refine result: \frac{1}{4}
+batch 14, data 2: refine result: 21
+batch 14, data 3: refine result: 20
+batch 14, data 4: refine result: 10
+batch 14, data 5: refine result: 18
+batch 14, data 6: refine result: 50
+batch 14, data 7: refine result: 27.00
+batch 14, data 8: refine result: 8
+batch 14, data 9: refine result: 777
+>>> Accu:0.4666666666666667
+Processing batches:  80%|████████  | 16/20 [06:54<01:46, 26.67s/it]batch 15, data 0: refine result: 130
+batch 15, data 1: refine result: 7
+batch 15, data 2: refine result: 12
+batch 15, data 3: refine result: 326.5
+batch 15, data 4: refine result: 0
+batch 15, data 5: refine result: \frac{2}{9}
+batch 15, data 6: refine result: 242
+batch 15, data 7: refine result: 2
+batch 15, data 8: refine result: -30
+batch 15, data 9: refine result: -312
+>>> Accu:0.4875
+Processing batches:  85%|████████▌ | 17/20 [07:21<01:20, 26.69s/it]batch 16, data 0: refine result: 36
+batch 16, data 1: refine result: 9
+batch 16, data 2: refine result: 15x - 80
+batch 16, data 3: refine result: 84.5
+batch 16, data 4: refine result: CE
+batch 16, data 5: refine result: 180
+batch 16, data 6: refine result: 3024
+batch 16, data 7: refine result: 5
+batch 16, data 8: refine result: -3
+batch 16, data 9: refine result: \frac{4}{35}
+>>> Accu:0.5
+Processing batches:  90%|█████████ | 18/20 [07:44<00:51, 25.65s/it]batch 17, data 0: refine result: 24
+batch 17, data 1: refine result: 78
+batch 17, data 2: refine result: 0.0278
+batch 17, data 3: refine result: 12
+batch 17, data 4: refine result: 2
+batch 17, data 5: refine result: 7.78
+batch 17, data 6: refine result: \frac{1}{3}
+batch 17, data 7: refine result: 0.4
+batch 17, data 8: refine result: 160
+batch 17, data 9: refine result: 16
+>>> Accu:0.5166666666666667
+Processing batches:  95%|█████████▌| 19/20 [08:22<00:29, 29.55s/it]batch 18, data 0: refine result: 8
+batch 18, data 1: refine result: 28\sqrt{2}
+batch 18, data 2: refine result: 18
+batch 18, data 3: refine result: 3
+batch 18, data 4: refine result: 32
+batch 18, data 5: refine result: 15
+batch 18, data 6: refine result: 1349400
+batch 18, data 7: refine result: 1
+batch 18, data 8: refine result: \frac{11}{60}
+batch 18, data 9: refine result: 12
+>>> Accu:0.5157894736842106
+Processing batches: 100%|██████████| 20/20 [08:53<00:00, 29.81s/it]Processing batches: 100%|██████████| 20/20 [08:53<00:00, 26.67s/it]
+batch 19, data 0: refine result: 162
+batch 19, data 1: refine result: 11
+batch 19, data 2: refine result: 6
+batch 19, data 3: refine result: 68
+batch 19, data 4: refine result: 360
+batch 19, data 5: refine result: 6
+batch 19, data 6: refine result: 36
+batch 19, data 7: refine result: 7
+batch 19, data 8: refine result: 20
+batch 19, data 9: refine result: 3
+>>> Accu:0.535
+results have been saved to 0919exp_math_result_nomem_200.json
+[rank0]:[W919 05:14:30.367437541 ProcessGroupNCCL.cpp:1476] Warning: WARNING: destroy_process_group() was not called before program exit, which can leak resources. For more info, please see https://pytorch.org/docs/stable/distributed.html#shutdown (function operator())
+Exception ignored in: <function Pool.__del__ at 0x7fac83134400>
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.12/dist-packages/multiprocess/pool.py", line 271, in __del__
+  File "/usr/local/lib/python3.12/dist-packages/multiprocess/queues.py", line 391, in put
+AttributeError: 'NoneType' object has no attribute 'dumps'
