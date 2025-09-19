@@ -1,0 +1,404 @@
+INFO 09-19 03:04:48 [__init__.py:244] Automatically detected platform rocm.
+INFO 09-19 03:05:12 [config.py:822] This model supports multiple tasks: {'reward', 'embed', 'classify', 'score', 'generate'}. Defaulting to 'generate'.
+INFO 09-19 03:05:12 [arg_utils.py:1644] rocm is experimental on VLLM_USE_V1=1. Falling back to V0 Engine.
+INFO 09-19 03:05:23 [config.py:1974] Disabled the custom all-reduce kernel because it is not supported on current platform.
+WARNING 09-19 03:05:23 [rocm.py:288] To see benefits of async output processing, enable CUDA graph. Since, enforce-eager is enabled, async output processor cannot be used
+INFO 09-19 03:05:23 [llm_engine.py:231] Initializing a V0 LLM engine (v0.9.0.2.dev108+g71faa1880) with config: model='dongguanting/Tool-Star-Qwen-1.5B', speculative_config=None, tokenizer='dongguanting/Tool-Star-Qwen-1.5B', skip_tokenizer_init=False, tokenizer_mode=auto, revision=None, override_neuron_config={}, tokenizer_revision=None, trust_remote_code=True, dtype=torch.bfloat16, max_seq_len=31384, download_dir=None, load_format=LoadFormat.AUTO, tensor_parallel_size=1, pipeline_parallel_size=1, disable_custom_all_reduce=True, quantization=None, enforce_eager=True, kv_cache_dtype=auto,  device_config=cuda, decoding_config=DecodingConfig(backend='auto', disable_fallback=False, disable_any_whitespace=False, disable_additional_properties=False, reasoning_backend=''), observability_config=ObservabilityConfig(show_hidden_metrics_for_version=None, otlp_traces_endpoint=None, collect_detailed_traces=None), seed=0, served_model_name=dongguanting/Tool-Star-Qwen-1.5B, num_scheduler_steps=1, multi_step_stream_outputs=True, enable_prefix_caching=None, chunked_prefill_enabled=False, use_async_output_proc=False, pooler_config=None, compilation_config={"level":0,"debug_dump_path":"","cache_dir":"","backend":"","custom_ops":[],"splitting_ops":[],"use_inductor":true,"compile_sizes":[],"inductor_compile_config":{"enable_auto_functionalized_v2":false},"inductor_passes":{},"use_cudagraph":false,"cudagraph_num_of_warmups":0,"cudagraph_capture_sizes":[],"cudagraph_copy_inputs":false,"full_cuda_graph":false,"max_capture_size":0,"local_cache_dir":null}, use_cached_outputs=False, 
+INFO 09-19 03:05:25 [rocm.py:233] Using ROCmFlashAttention backend.
+INFO 09-19 03:05:26 [parallel_state.py:1065] rank 0 in world size 1 is assigned as DP rank 0, PP rank 0, TP rank 0, EP rank 0
+INFO 09-19 03:05:26 [model_runner.py:1171] Starting to load model dongguanting/Tool-Star-Qwen-1.5B...
+WARNING 09-19 03:05:26 [rocm.py:338] Model architecture 'Qwen2ForCausalLM' is partially supported by ROCm: Sliding window attention (SWA) is not yet supported in Triton flash attention. For half-precision SWA support, please use CK flash attention by setting `VLLM_USE_TRITON_FLASH_ATTN=0`
+INFO 09-19 03:05:27 [weight_utils.py:292] Using model weights format ['*.safetensors']
+INFO 09-19 03:05:27 [weight_utils.py:345] No model.safetensors.index.json found in remote.
+Loading safetensors checkpoint shards:   0% Completed | 0/1 [00:00<?, ?it/s]
+Loading safetensors checkpoint shards: 100% Completed | 1/1 [00:00<00:00,  1.02it/s]
+Loading safetensors checkpoint shards: 100% Completed | 1/1 [00:00<00:00,  1.02it/s]
+
+INFO 09-19 03:05:28 [default_loader.py:272] Loading weights took 1.07 seconds
+INFO 09-19 03:05:28 [model_runner.py:1203] Model loading took 3.1953 GiB and 2.611618 seconds
+/usr/local/lib/python3.12/dist-packages/vllm/model_executor/layers/utils.py:76: UserWarning: Failed validator: GCN_ARCH_NAME (Triggered internally at /app/pytorch/aten/src/ATen/hip/tunable/Tunable.cpp:366.)
+  return torch.nn.functional.linear(x, weight, bias)
+INFO 09-19 03:05:34 [worker.py:294] Memory profiling takes 5.80 seconds
+INFO 09-19 03:05:34 [worker.py:294] the current vLLM instance can use total_gpu_memory (63.98GiB) x gpu_memory_utilization (0.80) = 51.19GiB
+INFO 09-19 03:05:34 [worker.py:294] model weights take 3.20GiB; non_torch_memory takes 0.41GiB; PyTorch activation peak memory takes 2.04GiB; the rest of the memory reserved for KV Cache is 45.55GiB.
+INFO 09-19 03:05:35 [executor_base.py:113] # rocm blocks: 106609, # CPU blocks: 9362
+INFO 09-19 03:05:35 [executor_base.py:118] Maximum concurrency for 31384 tokens per request: 54.35x
+INFO 09-19 03:05:36 [llm_engine.py:429] init engine (profile, create kv cache, warmup model) took 7.55 seconds
+Use Memory
+Initializing QwenReranker on device: cuda
+{
+    "dataset": "math",
+    "output": "0905exp_math_result_mem.json"
+}
+dataset math all counts: 50, batch size: 10, bath counts: 5
+Processing batches:   0%|          | 0/5 [00:00<?, ?it/s]/workspace/Tool-Star/evaluation/mem_utils_0917.py:289: UserWarning: The problem size 3 minus the constraints size 0 is too small relative to the block size 2. Using a dense eigensolver instead of LOBPCG iterations.No output of the history of the iterations.
+  vals, vecs = lobpcg(L, X, largest=False, tol=1e-4, maxiter=60)
+/workspace/Tool-Star/evaluation/mem_utils_0917.py:289: UserWarning: The problem size 6 minus the constraints size 0 is too small relative to the block size 5. Using a dense eigensolver instead of LOBPCG iterations.No output of the history of the iterations.
+  vals, vecs = lobpcg(L, X, largest=False, tol=1e-4, maxiter=60)
+/workspace/Tool-Star/evaluation/mem_utils_0917.py:289: UserWarning: The problem size 9 minus the constraints size 0 is too small relative to the block size 8. Using a dense eigensolver instead of LOBPCG iterations.No output of the history of the iterations.
+  vals, vecs = lobpcg(L, X, largest=False, tol=1e-4, maxiter=60)
+/workspace/Tool-Star/evaluation/mem_utils_0917.py:289: UserWarning: The problem size 12 minus the constraints size 0 is too small relative to the block size 10. Using a dense eigensolver instead of LOBPCG iterations.No output of the history of the iterations.
+  vals, vecs = lobpcg(L, X, largest=False, tol=1e-4, maxiter=60)
+/workspace/Tool-Star/evaluation/mem_utils_0917.py:289: UserWarning: The problem size 15 minus the constraints size 0 is too small relative to the block size 10. Using a dense eigensolver instead of LOBPCG iterations.No output of the history of the iterations.
+  vals, vecs = lobpcg(L, X, largest=False, tol=1e-4, maxiter=60)
+Processing batches:  20%|██        | 1/5 [00:24<01:37, 24.38s/it]batch 0, data 0: refine result: 420
+[QUERY] new  →  query_0
+[THINK] new   →  thought_1
+[CODE ] new   →  solution_2
+[GRAPH] updated. main query: query_0 | total nodes: 3
+
+batch 0, data 1: refine result: \frac{1}{9}
+Not correct, Do not update graph
+batch 0, data 2: refine result: 3400
+[QUERY] new  →  query_3
+[THINK] new   →  thought_4
+[CODE ] new   →  solution_5
+[GRAPH] updated. main query: query_3 | total nodes: 6
+
+batch 0, data 3: refine result: 3:30
+Not correct, Do not update graph
+batch 0, data 4: refine result: \frac{93}{31}
+Not correct, Do not update graph
+batch 0, data 5: refine result: 100
+Not correct, Do not update graph
+batch 0, data 6: refine result: \frac{5}{6}
+Not correct, Do not update graph
+batch 0, data 7: refine result: 18
+[QUERY] new  →  query_6
+[THINK] new   →  thought_7
+[CODE ] new   →  solution_8
+[GRAPH] updated. main query: query_6 | total nodes: 9
+
+batch 0, data 8: refine result: 1
+[QUERY] new  →  query_9
+[THINK] new   →  thought_10
+[CODE ] new   →  solution_11
+[GRAPH] updated. main query: query_9 | total nodes: 12
+
+batch 0, data 9: refine result: -4
+[QUERY] new  →  query_12
+[THINK] new   →  thought_13
+[CODE ] new   →  solution_14
+[GRAPH] updated. main query: query_12 | total nodes: 15
+
+>>> Accu:0.5
+/workspace/Tool-Star/evaluation/mem_utils_0917.py:289: UserWarning: The problem size 17 minus the constraints size 0 is too small relative to the block size 10. Using a dense eigensolver instead of LOBPCG iterations.No output of the history of the iterations.
+  vals, vecs = lobpcg(L, X, largest=False, tol=1e-4, maxiter=60)
+/workspace/Tool-Star/evaluation/mem_utils_0917.py:289: UserWarning: The problem size 19 minus the constraints size 0 is too small relative to the block size 10. Using a dense eigensolver instead of LOBPCG iterations.No output of the history of the iterations.
+  vals, vecs = lobpcg(L, X, largest=False, tol=1e-4, maxiter=60)
+/workspace/Tool-Star/evaluation/mem_utils_0917.py:289: UserWarning: The problem size 20 minus the constraints size 0 is too small relative to the block size 10. Using a dense eigensolver instead of LOBPCG iterations.No output of the history of the iterations.
+  vals, vecs = lobpcg(L, X, largest=False, tol=1e-4, maxiter=60)
+/workspace/Tool-Star/evaluation/mem_utils_0917.py:289: UserWarning: The problem size 22 minus the constraints size 0 is too small relative to the block size 10. Using a dense eigensolver instead of LOBPCG iterations.No output of the history of the iterations.
+  vals, vecs = lobpcg(L, X, largest=False, tol=1e-4, maxiter=60)
+/workspace/Tool-Star/evaluation/mem_utils_0917.py:289: UserWarning: The problem size 24 minus the constraints size 0 is too small relative to the block size 10. Using a dense eigensolver instead of LOBPCG iterations.No output of the history of the iterations.
+  vals, vecs = lobpcg(L, X, largest=False, tol=1e-4, maxiter=60)
+/workspace/Tool-Star/evaluation/mem_utils_0917.py:289: UserWarning: The problem size 25 minus the constraints size 0 is too small relative to the block size 10. Using a dense eigensolver instead of LOBPCG iterations.No output of the history of the iterations.
+  vals, vecs = lobpcg(L, X, largest=False, tol=1e-4, maxiter=60)
+Processing batches:  40%|████      | 2/5 [01:12<01:54, 38.28s/it]batch 1, data 0: refine result: 48
+Not correct, Do not update graph
+batch 1, data 1: refine result: 27
+Merging query with query_0 (score: 1.00 >= 0.6)
+[QUERY] merged→query_0  →  query_0
+[THINK] new   →  thought_15
+[CODE ] new   →  solution_16
+[GRAPH] updated. main query: query_0 | total nodes: 17
+
+batch 1, data 2: refine result: 112
+Not correct, Do not update graph
+batch 1, data 3: refine result: 4
+Merging query with query_12 (score: 1.00 >= 0.6)
+[QUERY] merged→query_12  →  query_12
+[THINK] new   →  thought_17
+[CODE ] new   →  solution_18
+[GRAPH] updated. main query: query_12 | total nodes: 19
+
+batch 1, data 4: refine result: 30
+Not correct, Do not update graph
+batch 1, data 5: refine result: 60
+Merging query with query_0 (score: 1.00 >= 0.6)
+[QUERY] merged→query_0  →  query_0
+[THINK] new   →  thought_19
+Merging solution with solution_8 (score: 0.68 >= 0.6)
+[CODE ] merged→solution_8   →  solution_8
+[GRAPH] updated. main query: query_0 | total nodes: 20
+
+batch 1, data 6: refine result: 9
+Merging query with query_12 (score: 1.00 >= 0.6)
+[QUERY] merged→query_12  →  query_12
+[THINK] new   →  thought_20
+[CODE ] new   →  solution_21
+[GRAPH] updated. main query: query_12 | total nodes: 22
+
+batch 1, data 7: refine result: 6300000
+Not correct, Do not update graph
+batch 1, data 8: refine result: 10
+Merging query with query_0 (score: 1.00 >= 0.6)
+[QUERY] merged→query_0  →  query_0
+[THINK] new   →  thought_22
+[CODE ] new   →  solution_23
+[GRAPH] updated. main query: query_0 | total nodes: 24
+
+batch 1, data 9: refine result: \frac{1}{2}
+Merging query with query_12 (score: 1.00 >= 0.6)
+[QUERY] merged→query_12  →  query_12
+Merging thought with thought_10 (score: 0.85 >= 0.6)
+[THINK] merged→thought_10   →  thought_10
+[CODE ] new   →  solution_24
+[GRAPH] updated. main query: query_12 | total nodes: 25
+
+>>> Accu:0.55
+/workspace/Tool-Star/evaluation/mem_utils_0917.py:289: UserWarning: The problem size 26 minus the constraints size 0 is too small relative to the block size 10. Using a dense eigensolver instead of LOBPCG iterations.No output of the history of the iterations.
+  vals, vecs = lobpcg(L, X, largest=False, tol=1e-4, maxiter=60)
+/workspace/Tool-Star/evaluation/mem_utils_0917.py:289: UserWarning: The problem size 28 minus the constraints size 0 is too small relative to the block size 10. Using a dense eigensolver instead of LOBPCG iterations.No output of the history of the iterations.
+  vals, vecs = lobpcg(L, X, largest=False, tol=1e-4, maxiter=60)
+/workspace/Tool-Star/evaluation/mem_utils_0917.py:289: UserWarning: The problem size 30 minus the constraints size 0 is too small relative to the block size 10. Using a dense eigensolver instead of LOBPCG iterations.No output of the history of the iterations.
+  vals, vecs = lobpcg(L, X, largest=False, tol=1e-4, maxiter=60)
+/workspace/Tool-Star/evaluation/mem_utils_0917.py:289: UserWarning: The problem size 32 minus the constraints size 0 is too small relative to the block size 10. Using a dense eigensolver instead of LOBPCG iterations.No output of the history of the iterations.
+  vals, vecs = lobpcg(L, X, largest=False, tol=1e-4, maxiter=60)
+/workspace/Tool-Star/evaluation/mem_utils_0917.py:289: UserWarning: The problem size 34 minus the constraints size 0 is too small relative to the block size 10. Using a dense eigensolver instead of LOBPCG iterations.No output of the history of the iterations.
+  vals, vecs = lobpcg(L, X, largest=False, tol=1e-4, maxiter=60)
+/workspace/Tool-Star/evaluation/mem_utils_0917.py:289: UserWarning: The problem size 36 minus the constraints size 0 is too small relative to the block size 10. Using a dense eigensolver instead of LOBPCG iterations.No output of the history of the iterations.
+  vals, vecs = lobpcg(L, X, largest=False, tol=1e-4, maxiter=60)
+Processing batches:  60%|██████    | 3/5 [01:49<01:15, 37.89s/it]batch 2, data 0: refine result: 76
+Merging query with query_12 (score: 1.00 >= 0.6)
+[QUERY] merged→query_12  →  query_12
+Merging thought with thought_19 (score: 0.64 >= 0.6)
+[THINK] merged→thought_19   →  thought_19
+[CODE ] new   →  solution_25
+[GRAPH] updated. main query: query_12 | total nodes: 26
+
+batch 2, data 1: refine result: 20
+Merging query with query_0 (score: 1.00 >= 0.6)
+[QUERY] merged→query_0  →  query_0
+[THINK] new   →  thought_26
+[CODE ] new   →  solution_27
+[GRAPH] updated. main query: query_0 | total nodes: 28
+
+batch 2, data 2: refine result: 4a - 2
+Not correct, Do not update graph
+batch 2, data 3: refine result: 97
+Merging query with query_0 (score: 1.00 >= 0.6)
+[QUERY] merged→query_0  →  query_0
+[THINK] new   →  thought_28
+[CODE ] new   →  solution_29
+[GRAPH] updated. main query: query_0 | total nodes: 30
+
+batch 2, data 4: refine result: 12\frac{3}{5}
+Merging query with query_0 (score: 1.00 >= 0.6)
+[QUERY] merged→query_0  →  query_0
+[THINK] new   →  thought_30
+[CODE ] new   →  solution_31
+[GRAPH] updated. main query: query_0 | total nodes: 32
+
+batch 2, data 5: refine result: 25
+Merging query with query_0 (score: 1.00 >= 0.6)
+[QUERY] merged→query_0  →  query_0
+[THINK] new   →  thought_32
+[CODE ] new   →  solution_33
+[GRAPH] updated. main query: query_0 | total nodes: 34
+
+batch 2, data 6: refine result: 6
+Not correct, Do not update graph
+batch 2, data 7: refine result: 198
+Not correct, Do not update graph
+batch 2, data 8: refine result: 7
+Not correct, Do not update graph
+batch 2, data 9: refine result: \frac{11}{13}
+Merging query with query_0 (score: 1.00 >= 0.6)
+[QUERY] merged→query_0  →  query_0
+[THINK] new   →  thought_34
+[CODE ] new   →  solution_35
+[GRAPH] updated. main query: query_0 | total nodes: 36
+
+>>> Accu:0.5666666666666667
+/workspace/Tool-Star/evaluation/mem_utils_0917.py:289: UserWarning: The problem size 38 minus the constraints size 0 is too small relative to the block size 10. Using a dense eigensolver instead of LOBPCG iterations.No output of the history of the iterations.
+  vals, vecs = lobpcg(L, X, largest=False, tol=1e-4, maxiter=60)
+/workspace/Tool-Star/evaluation/mem_utils_0917.py:289: UserWarning: The problem size 40 minus the constraints size 0 is too small relative to the block size 10. Using a dense eigensolver instead of LOBPCG iterations.No output of the history of the iterations.
+  vals, vecs = lobpcg(L, X, largest=False, tol=1e-4, maxiter=60)
+/workspace/Tool-Star/evaluation/mem_utils_0917.py:289: UserWarning: The problem size 42 minus the constraints size 0 is too small relative to the block size 10. Using a dense eigensolver instead of LOBPCG iterations.No output of the history of the iterations.
+  vals, vecs = lobpcg(L, X, largest=False, tol=1e-4, maxiter=60)
+/workspace/Tool-Star/evaluation/mem_utils_0917.py:289: UserWarning: The problem size 44 minus the constraints size 0 is too small relative to the block size 10. Using a dense eigensolver instead of LOBPCG iterations.No output of the history of the iterations.
+  vals, vecs = lobpcg(L, X, largest=False, tol=1e-4, maxiter=60)
+Processing batches:  80%|████████  | 4/5 [02:27<00:37, 37.73s/it]batch 3, data 0: refine result: 76
+Merging query with query_0 (score: 1.00 >= 0.6)
+[QUERY] merged→query_0  →  query_0
+[THINK] new   →  thought_36
+[CODE ] new   →  solution_37
+[GRAPH] updated. main query: query_0 | total nodes: 38
+
+batch 3, data 1: refine result: 6
+Merging query with query_0 (score: 1.00 >= 0.6)
+[QUERY] merged→query_0  →  query_0
+Merging thought with thought_32 (score: 0.97 >= 0.6)
+[THINK] merged→thought_32   →  thought_32
+Merging solution with solution_33 (score: 0.97 >= 0.6)
+[CODE ] merged→solution_33   →  solution_33
+[GRAPH] updated. main query: query_0 | total nodes: 38
+
+batch 3, data 2: refine result: 3969
+Not correct, Do not update graph
+batch 3, data 3: refine result: -3t
+Not correct, Do not update graph
+batch 3, data 4: refine result: \frac{11}{100}
+Merging query with query_12 (score: 1.00 >= 0.6)
+[QUERY] merged→query_12  →  query_12
+[THINK] new   →  thought_38
+[CODE ] new   →  solution_39
+[GRAPH] updated. main query: query_12 | total nodes: 40
+
+batch 3, data 5: refine result: \frac{1}{2}
+Not correct, Do not update graph
+batch 3, data 6: refine result: 10
+Merging query with query_0 (score: 1.00 >= 0.6)
+[QUERY] merged→query_0  →  query_0
+[THINK] new   →  thought_40
+[CODE ] new   →  solution_41
+[GRAPH] updated. main query: query_0 | total nodes: 42
+
+batch 3, data 7: refine result: 11 \frac{1}{3}
+Not correct, Do not update graph
+batch 3, data 8: refine result: -4
+Not correct, Do not update graph
+batch 3, data 9: refine result: 1020
+Merging query with query_0 (score: 1.00 >= 0.6)
+[QUERY] merged→query_0  →  query_0
+[THINK] new   →  thought_42
+[CODE ] new   →  solution_43
+[GRAPH] updated. main query: query_0 | total nodes: 44
+
+>>> Accu:0.55
+/workspace/Tool-Star/evaluation/mem_utils_0917.py:289: UserWarning: The problem size 46 minus the constraints size 0 is too small relative to the block size 10. Using a dense eigensolver instead of LOBPCG iterations.No output of the history of the iterations.
+  vals, vecs = lobpcg(L, X, largest=False, tol=1e-4, maxiter=60)
+/workspace/Tool-Star/evaluation/mem_utils_0917.py:289: UserWarning: The problem size 48 minus the constraints size 0 is too small relative to the block size 10. Using a dense eigensolver instead of LOBPCG iterations.No output of the history of the iterations.
+  vals, vecs = lobpcg(L, X, largest=False, tol=1e-4, maxiter=60)
+/workspace/Tool-Star/evaluation/mem_utils_0917.py:289: UserWarning: Exited at iteration 60 with accuracies 
+[2.1306271  1.02497855 1.23933176 1.22410731 1.12028117 0.85426906
+ 0.77320907 0.78686261 0.84234196 0.70307526]
+not reaching the requested tolerance 0.0001.
+Use iteration 1 instead with accuracy 
+0.8187634927361932.
+
+  vals, vecs = lobpcg(L, X, largest=False, tol=1e-4, maxiter=60)
+/workspace/Tool-Star/evaluation/mem_utils_0917.py:289: UserWarning: Exited postprocessing with accuracies 
+[0.53865041 0.44078394 0.49108205 0.77704228 0.39224897 0.51735424
+ 0.84566109 0.68295181 0.9473405  1.3532447 ]
+not reaching the requested tolerance 0.0001.
+  vals, vecs = lobpcg(L, X, largest=False, tol=1e-4, maxiter=60)
+/workspace/Tool-Star/evaluation/mem_utils_0917.py:289: UserWarning: Exited at iteration 60 with accuracies 
+[1.61960944 0.86785724 0.83205801 0.79380697 0.6929813  0.90177881
+ 0.87675316 1.02044581 0.79189762 0.86472815]
+not reaching the requested tolerance 0.0001.
+Use iteration 1 instead with accuracy 
+0.7898869588484626.
+
+  vals, vecs = lobpcg(L, X, largest=False, tol=1e-4, maxiter=60)
+/workspace/Tool-Star/evaluation/mem_utils_0917.py:289: UserWarning: Exited postprocessing with accuracies 
+[0.47623483 0.45697352 0.53931621 0.42651079 0.83632171 0.38129573
+ 0.74889071 0.77869937 0.97763537 1.07923665]
+not reaching the requested tolerance 0.0001.
+  vals, vecs = lobpcg(L, X, largest=False, tol=1e-4, maxiter=60)
+/workspace/Tool-Star/evaluation/mem_utils_0917.py:289: UserWarning: Exited at iteration 60 with accuracies 
+[1.32302992 1.17067171 1.25689477 0.64950702 0.91907957 0.70866247
+ 0.78345103 0.85044745 0.90295325 1.47048441]
+not reaching the requested tolerance 0.0001.
+Use iteration 1 instead with accuracy 
+0.7852696452500197.
+
+  vals, vecs = lobpcg(L, X, largest=False, tol=1e-4, maxiter=60)
+/workspace/Tool-Star/evaluation/mem_utils_0917.py:289: UserWarning: Exited postprocessing with accuracies 
+[0.48157106 0.48399924 0.73033524 0.70718122 0.79354618 0.61464771
+ 0.93019002 0.61737848 0.90839005 0.64423907]
+not reaching the requested tolerance 0.0001.
+  vals, vecs = lobpcg(L, X, largest=False, tol=1e-4, maxiter=60)
+/workspace/Tool-Star/evaluation/mem_utils_0917.py:289: UserWarning: Exited at iteration 60 with accuracies 
+[1.43659993 0.93791876 0.98861127 0.92791157 0.68821614 0.88264986
+ 0.72147323 0.80306286 0.75715007 0.87724646]
+not reaching the requested tolerance 0.0001.
+Use iteration 1 instead with accuracy 
+0.7563458192577464.
+
+  vals, vecs = lobpcg(L, X, largest=False, tol=1e-4, maxiter=60)
+/workspace/Tool-Star/evaluation/mem_utils_0917.py:289: UserWarning: Exited postprocessing with accuracies 
+[0.61145735 0.5100981  0.63468857 0.6398579  0.73863679 0.62269502
+ 0.86423705 0.74857603 0.98750365 0.69529343]
+not reaching the requested tolerance 0.0001.
+  vals, vecs = lobpcg(L, X, largest=False, tol=1e-4, maxiter=60)
+/workspace/Tool-Star/evaluation/mem_utils_0917.py:289: UserWarning: Exited at iteration 60 with accuracies 
+[1.25773248 1.24020058 1.1304626  1.02886954 0.86349089 0.71205838
+ 0.75567545 0.75271189 0.94580561 0.88249352]
+not reaching the requested tolerance 0.0001.
+Use iteration 1 instead with accuracy 
+0.7667227577247084.
+
+  vals, vecs = lobpcg(L, X, largest=False, tol=1e-4, maxiter=60)
+/workspace/Tool-Star/evaluation/mem_utils_0917.py:289: UserWarning: Exited postprocessing with accuracies 
+[0.50186873 0.48007153 0.58273334 0.4926951  0.74680089 0.70952862
+ 0.74774444 0.66708322 1.00023655 0.99261762]
+not reaching the requested tolerance 0.0001.
+  vals, vecs = lobpcg(L, X, largest=False, tol=1e-4, maxiter=60)
+Processing batches: 100%|██████████| 5/5 [03:11<00:00, 40.23s/it]Processing batches: 100%|██████████| 5/5 [03:11<00:00, 38.40s/it]
+batch 4, data 0: refine result: 25.33
+Not correct, Do not update graph
+batch 4, data 1: refine result: 32
+Merging query with query_12 (score: 1.00 >= 0.6)
+[QUERY] merged→query_12  →  query_12
+[THINK] new   →  thought_44
+[CODE ] new   →  solution_45
+[GRAPH] updated. main query: query_12 | total nodes: 46
+
+batch 4, data 2: refine result: 18
+Merging query with query_0 (score: 1.00 >= 0.6)
+[QUERY] merged→query_0  →  query_0
+[THINK] new   →  thought_46
+[CODE ] new   →  solution_47
+[GRAPH] updated. main query: query_0 | total nodes: 48
+
+batch 4, data 3: refine result: 20\pi
+Not correct, Do not update graph
+batch 4, data 4: refine result: 0
+Merging query with query_12 (score: 1.00 >= 0.6)
+[QUERY] merged→query_12  →  query_12
+[THINK] new   →  thought_48
+[CODE ] new   →  solution_49
+[GRAPH] updated. main query: query_12 | total nodes: 50
+
+batch 4, data 5: refine result: 72
+Not correct, Do not update graph
+batch 4, data 6: refine result: \frac{4}{11}
+Merging query with query_0 (score: 1.00 >= 0.6)
+[QUERY] merged→query_0  →  query_0
+[THINK] new   →  thought_50
+Merging solution with solution_24 (score: 0.78 >= 0.6)
+[CODE ] merged→solution_24   →  solution_24
+[GRAPH] updated. main query: query_0 | total nodes: 51
+
+batch 4, data 7: refine result: 87
+Merging query with query_12 (score: 1.00 >= 0.6)
+[QUERY] merged→query_12  →  query_12
+Merging thought with thought_40 (score: 0.95 >= 0.6)
+[THINK] merged→thought_40   →  thought_40
+[CODE ] new   →  solution_51
+[GRAPH] updated. main query: query_12 | total nodes: 52
+
+batch 4, data 8: refine result: 6
+Merging query with query_0 (score: 1.00 >= 0.6)
+[QUERY] merged→query_0  →  query_0
+[THINK] new   →  thought_52
+[CODE ] new   →  solution_53
+[GRAPH] updated. main query: query_0 | total nodes: 54
+
+batch 4, data 9: refine result: \frac{27}{128}
+Merging query with query_0 (score: 1.00 >= 0.6)
+[QUERY] merged→query_0  →  query_0
+[THINK] new   →  thought_54
+[CODE ] new   →  solution_55
+[GRAPH] updated. main query: query_0 | total nodes: 56
+
+>>> Accu:0.58
+results have been saved to 0905exp_math_result_mem.json
+[rank0]:[W919 03:09:01.565201104 ProcessGroupNCCL.cpp:1476] Warning: WARNING: destroy_process_group() was not called before program exit, which can leak resources. For more info, please see https://pytorch.org/docs/stable/distributed.html#shutdown (function operator())
+Exception ignored in: <function Pool.__del__ at 0x7faac1d342c0>
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.12/dist-packages/multiprocess/pool.py", line 271, in __del__
+  File "/usr/local/lib/python3.12/dist-packages/multiprocess/queues.py", line 391, in put
+AttributeError: 'NoneType' object has no attribute 'dumps'

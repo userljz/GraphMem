@@ -31,8 +31,13 @@ import re
 
 from utils import *
 
+# jz
+# from mem_utils import RetrievalGraphNX, QwenReranker, strip_prompt_get_question
+from mem_utils_0917 import QwenReranker, KnowledgeGraph, extract_query
+
+
 class Inference():
-    def __init__(self, model, tokenizer, params_config, task, dataset_name, output_path, batch_size=4, counts=100, prompt_type='code_search', use_debug=False, use_rollback=False, use_refiner=False):
+    def __init__(self, model, tokenizer, params_config, task, dataset_name, output_path, batch_size=4, counts=100, prompt_type='code_search', use_debug=False, use_rollback=False, use_refiner=False, args=None):
         self.model = model
         self.tokenizer = tokenizer
         self.params_config = SamplingParams(**params_config)
@@ -54,6 +59,18 @@ class Inference():
         self.questions = []
         self.answers = []
         self.executor = PythonExecutor(get_answer_from_stdout=True)
+        self.args = args
+
+        #jz0905
+        self.accu_list = []
+        if self.args.use_memory:
+            print(f"Use Memory")
+            self.ranker    = QwenReranker()           # 可选传 device/torch_dtype
+            # self.graph_mgr = RetrievalGraphNX(use_prob_sampling=False)
+            self.graph_mgr = KnowledgeGraph(ranker=self.ranker, alpha=0.6)
+        else:
+            print(f"Do Not Use Memory")
+
         if self.prompt_type == 'code_search':
             self.prompt_template = """
 You are a helpful assistant that can solve the given question step by step with the help of the wikipedia search tool and python interpreter tool. \
@@ -87,6 +104,8 @@ For example, <think> This is the reasoning process. </think> <python> python cod
 <think> This is the reasoning process. </think> <answer> The final answer is \\[ \\boxed{answer here} \\] </answer>. \
 In the last part of the answer, the final exact answer is enclosed within \\boxed{} with latex format.
 """
+
+    
 
     def run(self):
         self.load_datas()
@@ -123,6 +142,29 @@ In the last part of the answer, the final exact answer is enclosed within \\boxe
             outputs = []
             generating = list(range(len(prompts))) 
             completed = [] 
+
+            # jz0905
+            if self.args.use_memory:
+                for i in range(len(prompts)):
+                    q_only = extract_query(prompts[i])  # 不带提示词的“问题”
+                    all_queries_nodes = [nid for nid, ntype in self.graph_mgr.node_types.items() if ntype == 'query']
+
+                    if len(all_queries_nodes) >= 3:
+                        new_query_text = extract_query(prompts[i])
+                        k1_queries = self.graph_mgr.find_k1_queries(new_query_text, top_k=3)
+                        if self.args.find_nodes == "q_a":
+                            k1, k2, k3 = self.graph_mgr.find_nodes(new_query_text, k1_queries, k2=3, k3=2)
+                        elif self.args.find_nodes == "q":
+                            k1, k2, k3 = self.graph_mgr.find_nodes_only_from_query(k1_queries)
+                        all_retrieved_nodes = k1 + k2 + k3
+                        fewshot_prefix = self.graph_mgr.build_fewshot_prompt(all_retrieved_nodes, max_examples=2)
+                        print(f">>> Query: {new_query_text}")
+                        print(f">>> Few-shot Prefix: {fewshot_prefix}")
+
+                        if fewshot_prefix:
+                            prompts[i] = fewshot_prefix + "\n\n" + prompts[i]
+
+
             concat_prompts_outputs = prompts.copy()  
             python_rounds = [0 for _ in range(len(prompts))]
             search_rounds = [0 for _ in range(len(prompts))]
@@ -329,6 +371,22 @@ In the last part of the answer, the final exact answer is enclosed within \\boxe
                         "Prompt": prompts[i], "Full_output": concat_prompts_outputs[i][len(prompts[i]):], "Output": extracted_answers[i], "answer": golden_answers[i]
                     }
                 )
+                if extracted_answers[i] == golden_answers[i]:
+                    correct = 1
+                    self.accu_list.append(1)
+                else:
+                    correct = 0
+                    self.accu_list.append(0)
+                
+                if self.args.use_memory:
+                    if correct:
+                        # jz0905（位置 B）把刚完成的 trajectory 入库：更新四个 list + 建四类边
+                        traj = res[-1]
+                        self.graph_mgr.update_graph(traj["Prompt"], traj["Full_output"])
+                    else:
+                        print(f"Not correct, Do not update graph")
+
+            print(f">>> Accu:{sum(self.accu_list)/len(self.accu_list)}")
             
         with open(self.output_path, 'w', encoding='utf-8') as f:
             json.dump(res, f, indent=4, ensure_ascii=False)
@@ -336,7 +394,8 @@ In the last part of the answer, the final exact answer is enclosed within \\boxe
         print(f"results have been saved to {self.output_path}")
 
     def load_datas(self):
-        data_path = f'evaluation/data/{self.dataset_name}/test.jsonl'
+        # jz0830
+        data_path = f'/workspace/Tool-Star/evaluation/data/{self.dataset_name}/test.jsonl'
         print(json.dumps(
             {
                 'dataset': self.dataset_name, 'output': self.output_path,
@@ -448,7 +507,7 @@ if __name__ == "__main__":
     argument_parser.add_argument(
         "--gpu_use",
         type=float,
-        default=0.95,
+        default=0.5,
         help="GPU to use for testing",
     )
     argument_parser.add_argument(
@@ -514,6 +573,15 @@ if __name__ == "__main__":
         type=str,
         default=None
     )
+    argument_parser.add_argument(
+        "--use_memory",
+        action='store_true',
+    )
+    argument_parser.add_argument(
+        "--find_nodes",
+        type=str,
+        default="q_a"
+    )
     args = argument_parser.parse_args()
 
     model_config = {
@@ -549,5 +617,6 @@ if __name__ == "__main__":
         use_debug=args.use_debug,
         use_rollback=args.use_rollback,
         use_refiner=args.use_refiner,
+        args=args
     )
     inference.run()

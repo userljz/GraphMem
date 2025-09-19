@@ -1,16 +1,22 @@
-export CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7
+export HIP_VISIBLE_DEVICES=7
+export HF_HOME=/workspace/cache
 export TOKENIZERS_PARALLELISM=true
-export PYTHONPATH=/path/to/your_path:$PYTHONPATH
-module load cuda/11.8
+export PYTHONPATH=/workspace/Tool-Star:$PYTHONPATH
+# module load cuda/11.8
+
 python run.py \
-    --model_path /path/to/your_model_path \
+    --model_path dongguanting/Tool-Star-Qwen-1.5B \
     --dataset_name math \
     --task math \
-    --gpu_use 0.95 \
-    --max_tokens 16384 \
-    --max_input_len 16384 \
-    --output_path /path/to/your_results/your_exp_math_result.json \
-    --counts 500 \
-    --batch_size 100 \
-    --use_debug 
+    --gpu_use 0.8 \
+    --max_tokens 31384 \
+    --max_input_len 31384 \
+    --output_path 0905exp_math_result_mem.json \
+    --counts 50 \
+    --batch_size 10 \
+    --find_nodes "q_a" \
+    --use_memory \
+    &> ./output_log/0919_q_a.txt
+    # --use_memory
+    # --use_debug 
 
