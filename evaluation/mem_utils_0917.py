@@ -1,22 +1,40 @@
 # -*- coding: utf-8 -*-
+from __future__ import annotations
 import networkx as nx
 import numpy as np
 from scipy.sparse import diags
 from scipy.sparse.linalg import lobpcg
 import re
 import torch
-from typing import List, Optional
+
+
+from typing import List, Tuple, Dict, Optional
 
 
 # =================================================================================
 # PART 1: Utilities from 0917_old_memory.py (Text Extraction & Reranker)
 # =================================================================================
 
+# def _extract_between(text: str, start_tag: str, end_tag: str, default: str = "") -> str:
+#     """Helper to extract text between two tags."""
+#     pat = re.compile(re.escape(start_tag) + r"(.*?)" + re.escape(end_tag), re.DOTALL)
+#     m = pat.search(text or "")
+#     return (m.group(1).strip() if m else default).strip()
+
 def _extract_between(text: str, start_tag: str, end_tag: str, default: str = "") -> str:
-    """Helper to extract text between two tags."""
-    pat = re.compile(re.escape(start_tag) + r"(.*?)" + re.escape(end_tag), re.DOTALL)
-    m = pat.search(text or "")
-    return (m.group(1).strip() if m else default).strip()
+    """Helper to extract text between two tags (returns the LAST occurrence)."""
+    if not text:
+        return default.strip()
+    
+    # Escape tags and build pattern
+    pattern = re.escape(start_tag) + r"(.*?)" + re.escape(end_tag)
+    matches = re.findall(pattern, text, re.DOTALL)
+    
+    if matches:
+        return matches[-1].strip()
+    else:
+        return default.strip()
+
 
 
 def extract_query(prompt_block: str) -> str:
@@ -24,43 +42,31 @@ def extract_query(prompt_block: str) -> str:
     return _extract_between(prompt_block, "<|im_start|>user", "<|im_end|>", default="")
 
 
-def extract_think(prompt_block: str) -> str:
-    return _extract_between(prompt_block, "<think>", "</think>", default="")
+# def extract_think(prompt_block: str) -> str:
+#     return _extract_between(prompt_block, "<think>", "</think>", default="")
 
 # def extract_solution(prompt_block: str) -> str:
 #     return _extract_between(prompt_block, "<think>", "</think>", default="")
 
 
-def extract_solution_without_think(full_output: str) -> str:
-    """
-    通过移除 <think>...</think> 代码块，从完整输出中提取解决方案部分。
-
-    Args:
-        full_output (str): 模型的完整输出字符串，可能包含一个 <think> 块。
-
-    Returns:
-        str: 移除了 <think>...</think> 块并清理了前后空白字符的剩余字符串。
-    """
+def extract_solution(full_output: str) -> str:
+    
     if not full_output:
         return ""
+  
+    # result_pattern = r"<result>.*?</result>"
+    # answer_pattern = r"<answer>.*?</answer>"
     
-    # 定义一个正则表达式，用于匹配从 <think> 开始到 </think> 结束的整个代码块。
-    # - `.*?` 是一个“非贪婪”匹配，它会匹配到第一个出现的 `</think>` 就停止。
-    # - `flags=re.DOTALL` 确保 `.` 可以匹配包括换行符在内的任意字符。
-    think_pattern = r"<think>.*?</think>"
+    # solution_part = re.sub(result_pattern, "", full_output, flags=re.DOTALL)
+    # solution_part = re.sub(answer_pattern, "", solution_part, flags=re.DOTALL)
+    solution_part = full_output
     
-    # 使用 re.sub() 函数，将匹配到的 think_pattern 替换为空字符串("")，即实现删除效果。
-    solution_part = re.sub(think_pattern, "", full_output, flags=re.DOTALL)
-    
-    # 使用 .strip() 清理可能残余在字符串前后的空白或换行符。
     return solution_part.strip()
-
-
 
 
 class QwenReranker:
     """Qwen Reranker for semantic similarity scoring."""
-    MODEL = "Qwen/Qwen3-Reranker-0.6B"
+    MODEL = "Qwen/Qwen3-Reranker-4B"
     SYSTEM_PROMPT = (
         "Judge whether the Document meets the requirements based on the Query and the Instruct provided. "
         'Note that the answer can only be "yes" or "no".'
@@ -110,477 +116,266 @@ class QwenReranker:
 
 class KnowledgeGraph:
     """
-    Incrementally-growing Q–T–S KG with incremental spectral approximation.
-    Modified to use QwenReranker for similarity-based node merging.
+    简化版 Query–Answer 知识图：
+      - 不做节点合并：每条 trajectory = {query_i, answer_i}
+      - 边：
+          * Q–Q：相似度加权边（非负）
+          * A–A：相似度加权边（非负）
+          * Q–A（配对）：权重=1（无权也可，但为便于LPF取1）
+      - 检索：仅低通滤波（LPF），直接在全图上做，不取子图
+      - 依赖：
+          * ranker: 需提供 score_batch(query, candidates, instruction) -> List[float]
     """
-    INSTRUCT_QUERY = "Determine whether the two queries ask for the same or highly similar problem."
-    INSTRUCT_THINK = "Determine whether the two texts (excluding code) describe similar reasoning or answers."
-    INSTRUCT_CODE = "Determine whether the two code snippets implement the same or highly similar logic."
-    
-    # ----------------------------- init ---------------------------------
-    def __init__(self, ranker: QwenReranker, alpha: float = 0.7):
+
+    # INSTRUCT_QUERY = "Determine whether the two queries ask for the same or highly similar problem."
+    # INSTRUCT_ANSWER = "Determine whether the two solutions describe similar reasoning or answers."
+
+    INSTRUCT_QUERY = """
+    Rank similarity between two queries for few-shot selection.
+    Prioritize same task intent, output format, domain/difficulty, and constraints (APIs, languages,
+    precision, units, limits). Reward semantic equivalence beyond paraphrasing; penalize mismatched
+    outputs or incompatible constraints.
+    """
+
+    INSTRUCT_ANSWER = """
+    Rank similarity between two solutions for few-shot selection.
+    Prioritize same algorithmic idea, complexity class, data structures/APIs, edge-case handling,
+    and I/O contracts. Ignore naming/style. Penalize different algorithms or incompatible outputs.
+    """
+
+
+    def __init__(self, ranker, lpf_order: int = 4):
         """
-        Initializes the Knowledge Graph.
         Args:
-            ranker (QwenReranker): An initialized instance of the QwenReranker.
-            alpha (float): The similarity threshold for merging nodes.
+            ranker: 例如 QwenReranker，需实现 score_batch
+            lpf_order: 低通滤波多项式阶数（越大扩散更远，计算更慢）
         """
-        self.G = nx.DiGraph()
-        self.node_types, self.contents = {}, {}
-        self.node_counter = 0
-        # cached Laplacian eigen-pairs (k ≤ 10)
-        self.evals, self.evecs = None, None
-        self.k_eig = 10
-        
-        # --- MODIFIED ---
+        self.G: nx.Graph = nx.Graph()               # 使用无向图，便于相似度建模
+        self.node_types: Dict[str, str] = {}        # nid -> {'query','answer'}
+        self.contents: Dict[str, str] = {}          # nid -> text
+        self.pair: Dict[str, str] = {}              # 成对映射：qid <-> aid
+        self.q_count = 0
+        self.a_count = 0
+
         self.ranker = ranker
-        self.alpha = alpha
-        self.reranker_instructs = {
-            'query': self.INSTRUCT_QUERY,
-            'thought': self.INSTRUCT_THINK,
-            'solution': self.INSTRUCT_CODE,  # 'solution' now stores code
-        }
-    
-    # ------------------------- add / merge ------------------------------
-    def _add_node(self, txt: str, typ: str, parent=None) -> str:
-        nid = f"{typ}_{self.node_counter}"
-        self.node_counter += 1
+        self.lpf_order = lpf_order
+
+    # --------------------------- 基础工具 ---------------------------
+
+    def _new_id(self, typ: str) -> str:
+        if typ == 'query':
+            nid = f"query_{self.q_count}"
+            self.q_count += 1
+            return nid
+        elif typ == 'answer':
+            nid = f"answer_{self.a_count}"
+            self.a_count += 1
+            return nid
+        else:
+            raise ValueError("typ must be 'query' or 'answer'")
+
+    def _add_node(self, text: str, typ: str) -> str:
+        nid = self._new_id(typ)
         self.G.add_node(nid)
         self.node_types[nid] = typ
-        self.contents[nid] = txt
-        if parent:
-            self.G.add_edge(parent, nid, weight=1.0)
+        self.contents[nid] = text
         return nid
-    
-    def _merge_similar(self, new_content: str, node_type: str) -> Optional[str]:
-        """
-        Finds a similar existing node using the QwenReranker. If similarity is above alpha,
-        merges content and returns the existing node ID. Otherwise, returns None.
-        """
-        # --- MODIFIED ---
-        if not new_content.strip():  # Do not merge empty content
-            return None
-        
-        # 1. Collect historical content of the same type
-        hist_nodes = [nid for nid, typ in self.node_types.items() if typ == node_type]
-        if not hist_nodes:
-            return None
-        hist_contents = [self.contents[nid] for nid in hist_nodes]
-        
-        # 2. Score similarity with the reranker
-        instruction = self.reranker_instructs[node_type]
-        scores = self.ranker.score_batch(new_content, hist_contents, instruction)
-        
-        if not scores:
-            return None
-        
-        # 3. Check if the most similar node exceeds the threshold
-        max_score = max(scores)
-        if max_score >= self.alpha:
-            best_match_idx = scores.index(max_score)
-            nid_to_merge = hist_nodes[best_match_idx]
-            
-            # Optional: update content of the merged node
-            # self.contents[nid_to_merge] += f"\n--- MERGED ---\n{new_content}"
-            print(f"Merging {node_type} with {nid_to_merge} (score: {max_score:.2f} >= {self.alpha})")
-            return nid_to_merge
-        
-        return None
-    
 
-    def update_graph(self, prompt: str, full_output: str):
-        # 1. Extract Query, Thought, and Solution(Code) from inputs
-        q_txt = extract_query(prompt)
-        t_txt = extract_think(full_output)
-        s_txt = extract_solution_without_think(full_output)
-
-        if not q_txt:
-            print("Warning: Could not extract question from prompt. Skipping graph update.")
-            return None
-
-        # 2. Merge or add the new query node
-        merged_qid = self._merge_similar(q_txt, 'query')
-        qid = merged_qid if merged_qid else self._add_node(q_txt, 'query')
-        print(f"[QUERY] {'merged→' + merged_qid if merged_qid else 'new'}  →  {qid}")
-
-        # 3. Merge or add the new thought node, connected to the query
-        merged_tid = self._merge_similar(t_txt, 'thought')
-        tid = merged_tid if merged_tid else self._add_node(t_txt, 'thought', parent=qid)
-        print(f"[THINK] {'merged→' + merged_tid if merged_tid else 'new'}   →  {tid}")
-
-        # 4. Merge or add the new solution(code) node, connected to the thought
-        sid = None
-        merged_sid = self._merge_similar(s_txt, 'solution')
-        if s_txt:
-            sid = merged_sid if merged_sid else self._add_node(s_txt, 'solution', parent=tid)
-            print(f"[CODE ] {'merged→' + merged_sid if merged_sid else 'new'}   →  {sid}")
-        else:
-            print("[CODE ] (empty) — skipped")
-
-        # 5. Update spectral components
-        self._incremental_spectral()
-        print(f"[GRAPH] updated. main query: {qid} | total nodes: {len(self.G.nodes)}\n")
-
-        # 新增：把关键信息返回，方便主程序打印或做断言
-        return {
-            "qid": qid,
-            "tid": tid,
-            "sid": sid,
-            "merged": {
-                "query": bool(merged_qid),
-                "thought": bool(merged_tid),
-                "solution": bool(merged_sid),
-            }
-        }
-
-
-    # def update_graph(self, prompt: str, full_output: str):
-    #     """
-    #     Adds a new trajectory (from prompt and full_output) to the graph,
-    #     merging nodes if they are semantically similar to existing ones.
-    #     """
-    #     # --- MODIFIED ---
-    #     # 1. Extract Query, Thought, and Solution(Code) from inputs
-    #     q_txt = extract_query(prompt)
-    #     t_txt = extract_think(full_output)
-    #     s_txt = extract_solution_without_think(full_output)
-        
-    #     if not q_txt:
-    #         print("Warning: Could not extract question from prompt. Skipping graph update.")
-    #         return None
-        
-    #     # 2. Merge or add the new query node
-    #     merged_qid = self._merge_similar(q_txt, 'query')
-    #     qid = merged_qid if merged_qid else self._add_node(q_txt, 'query')
-        
-    #     # 3. Merge or add the new thought node, connected to the query
-    #     merged_tid = self._merge_similar(t_txt, 'thought')
-    #     tid = merged_tid if merged_tid else self._add_node(t_txt, 'thought', parent=qid)
-        
-    #     # 4. Merge or add the new solution(code) node, connected to the thought
-    #     merged_sid = self._merge_similar(s_txt, 'solution')
-    #     # A thought might not have a corresponding code solution
-    #     if s_txt:
-    #         sid = merged_sid if merged_sid else self._add_node(s_txt, 'solution', parent=tid)
-        
-    #     # 5. Update spectral components
-    #     self._incremental_spectral()
-    #     print(f"Updated graph with query: '{q_txt[:50]}...'. Main node: {qid}. Total nodes: {len(self.G.nodes)}\n")
-    #     return qid
-    
-    # --------------------- incremental spectral (UNCHANGED) -------------------------
-    def _incremental_spectral(self):
-        n = self.G.number_of_nodes()
-        if n <= 1:
-            self.evals, self.evecs = None, None
-            return
-        A = nx.to_scipy_sparse_array(self.G, weight='weight', dtype=float).tocsr()
-        deg = np.array(A.sum(axis=1)).flatten()
-        L = diags(deg) - A
-        k = min(self.k_eig, n - 1)
-        if self.evecs is None or self.evecs.shape[0] != n:
-            X = np.random.randn(n, k)
-        else:
-            X = np.zeros((n, k))
-            # Pad existing eigenvectors if graph has grown
-            prev_n = self.evecs.shape[0]
-            X[:prev_n, :min(k, self.evecs.shape[1])] = self.evecs[:, :min(k, self.evecs.shape[1])]
-            X += 1e-3 * np.random.randn(*X.shape)  # small noise for stability
-        vals, vecs = lobpcg(L, X, largest=False, tol=1e-4, maxiter=60)
-        idx = np.argsort(vals)
-        self.evals = vals[idx]
-        self.evecs = vecs[:, idx]
-    
-    # ----------------------- LPF / HPF utils (UNCHANGED) ----------------------------
     @staticmethod
-    def _norm_adj(subG: nx.DiGraph) -> np.ndarray:
-        A = nx.to_scipy_sparse_array(subG, weight='weight', dtype=float)
-        deg = np.array(A.sum(axis=1)).flatten()
-        # Avoid division by zero for isolated nodes
-        with np.errstate(divide='ignore', invalid='ignore'):
-            inv_sqrt_deg = 1.0 / np.sqrt(np.clip(deg, 1e-9, None))
-            inv_sqrt_deg[np.isinf(inv_sqrt_deg)] = 0
-        D_inv_sqrt = diags(inv_sqrt_deg)
-        P = D_inv_sqrt @ A @ D_inv_sqrt
-        return P.toarray()
-    
+    def _safe_weight(x: float) -> float:
+        # 若模型可能产生负分或NaN，这里裁剪为非负并处理异常
+        if x is None or (isinstance(x, float) and (np.isnan(x) or np.isinf(x))):
+            return 0.0
+        return float(max(0.0, x))
+
+    # --------------------------- 图构建：新增一条轨迹 ---------------------------
+
+    def add_trajectory(self, query_text: str, answer_text: str) -> Tuple[str, str]:
+        """
+        新增一条 Q–A 轨迹，不做合并。
+        自动添加：
+          - Q–A（配对，权重=1）
+          - Q 与所有历史 Q 的相似度边（Q–Q）
+          - A 与所有历史 A 的相似度边（A–A）
+        """
+        query_text = extract_query(query_text)
+        answer_text = extract_solution(answer_text)
+
+        qid = self._add_node(query_text, 'query')
+        aid = self._add_node(answer_text, 'answer')
+
+        # 配对 Q–A：权重=1
+        self.G.add_edge(qid, aid, weight=1.0)
+        self.pair[qid] = aid
+        self.pair[aid] = qid
+
+        # 连接 Q–Q
+        old_qs = [n for n, t in self.node_types.items() if t == 'query' and n != qid]
+        if old_qs:
+            old_q_texts = [self.contents[n] for n in old_qs]
+            scores = self.ranker.score_batch(query_text, old_q_texts, self.INSTRUCT_QUERY) or []
+            for nid_old, s in zip(old_qs, scores):
+                w = self._safe_weight(s)
+                if w > 0:
+                    self.G.add_edge(qid, nid_old, weight=w)
+
+        # 连接 A–A
+        old_as = [n for n, t in self.node_types.items() if t == 'answer' and n != aid]
+        if old_as:
+            old_a_texts = [self.contents[n] for n in old_as]
+            scores = self.ranker.score_batch(answer_text, old_a_texts, self.INSTRUCT_ANSWER) or []
+            for nid_old, s in zip(old_as, scores):
+                w = self._safe_weight(s)
+                if w > 0:
+                    self.G.add_edge(aid, nid_old, weight=w)
+
+        return qid, aid
+
+    # --------------------------- 检索：仅低通滤波（全图） ---------------------------
+
     @staticmethod
-    def _low_pass(s, P, order=4):
-        n = P.shape[0]
+    def _norm_adj(G: nx.Graph, nodelist: List[str]):
+        """
+        对称归一化邻接矩阵 P = D^{-1/2} A D^{-1/2}
+        使用 nodelist 固定行列与节点顺序对应关系，避免稀疏阵与索引错位。
+        """
+        A = nx.to_scipy_sparse_array(G, nodelist=nodelist, weight='weight', dtype=float).tocsr()
+        deg = np.array(A.sum(axis=1)).ravel()
+        inv_sqrt = 1.0 / np.sqrt(np.clip(deg, 1e-12, None))
+        Dm12 = diags(inv_sqrt)
+        P = Dm12 @ A @ Dm12
+        return P
+
+    @staticmethod
+    def _low_pass(s: np.ndarray, P, order: int = 4) -> np.ndarray:
+        """
+        多项式低通（Neumann-like 累加）：acc = s + 1/2 P s + 1/4 P^2 s + ...
+        s: (n, 1)
+        """
+        n = s.shape[0]
         I = np.eye(n)
         acc = s.copy()
         Pk = I.copy()
         for k in range(1, order + 1):
             Pk = Pk @ P
-            acc += (1 / 2 ** k) * (Pk @ s)
+            acc += (1 / (2 ** k)) * (Pk @ s)
         return acc
-    
-    @staticmethod
-    def _high_pass(s, P, order=4):
-        return s - KnowledgeGraph._low_pass(s, P, order)
-    
-    @staticmethod
-    def _mmr(scores, nodes, lam=0.5, top_k=5):
-        if not nodes: return []
-        sel_indices, cand_indices = [], list(range(len(nodes)))
-        while cand_indices and len(sel_indices) < top_k:
-            mmr_scores = []
-            for c_idx in cand_indices:
-                # Similarity to query
-                sim_to_query = lam * scores[c_idx]
-                # Dissimilarity to already selected items
-                max_sim_to_selected = 0
-                if sel_indices:
-                    # Using node index difference as a proxy for diversity
-                    sims_to_selected = [1 / (1 + abs(c_idx - s_idx)) for s_idx in sel_indices]
-                    max_sim_to_selected = max(sims_to_selected)
-                
-                mmr_scores.append(sim_to_query - (1 - lam) * max_sim_to_selected)
-            
-            best_cand_local_idx = int(np.argmax(mmr_scores))
-            best_cand_global_idx = cand_indices[best_cand_local_idx]
-            
-            sel_indices.append(best_cand_global_idx)
-            cand_indices.remove(best_cand_global_idx)
-        
-        return [nodes[i] for i in sel_indices]
-    
-    # ------------------------- k-hop subgraph (UNCHANGED) ---------------------------
-    def _khop_sub(self, src, h=5):
-        if src not in self.G: return nx.DiGraph()
-        vis = {src}
-        frontier = {src}
-        for _ in range(h):
-            if not frontier: break
-            nxt = set()
-            for v in frontier:
-                nxt.update(self.G.successors(v))
-                nxt.update(self.G.predecessors(v))
-            frontier = nxt - vis
-            vis.update(nxt)
-        return self.G.subgraph(vis).copy()
-    
-    # ----------------------------- query (UNCHANGED) --------------------------------
-    def find_nodes(self, new_q_txt, k1_queries, k2=10, k3=5):
-        # 1) 临时插入新 Query 并连接到 k1_queries
-        q_new = "temp_query_node_for_find"  # Use a unique temp name
-        self.node_counter += 1  # Temporarily increment
-        self.G.add_node(q_new)
-        self.node_types[q_new] = 'query'
-        self.contents[q_new] = new_q_txt
-        
-        temp_edges = []
-        for q in k1_queries:
-            if q in self.G.nodes:
-                self.G.add_edge(q_new, q, weight=1.0)
-                self.G.add_edge(q, q_new, weight=1.0)
-                temp_edges.extend([(q_new, q), (q, q_new)])
-        
-        # 2) 取 5-hop 子图
-        subG = self._khop_sub(q_new, 5)
-        nodes = list(subG.nodes)
-        if len(nodes) <= 1:
-            self._cleanup(q_new, temp_edges)
-            return list(k1_queries), [], []
-        
-        # 3) LPF 找 k2 个功能相似 queries
-        P = self._norm_adj(subG)
+
+    def _temp_connect_query(self, q_tmp: str, query_text: str) -> List[Tuple[str, str]]:
+        """
+        将临时 query 与所有历史 query 建立 Q–Q 相似度边；返回已加边（用于回收）。
+        """
+        edges_added = []
+        old_qs = [n for n, t in self.node_types.items() if t == 'query']
+        if not old_qs:
+            return edges_added
+        texts = [self.contents[n] for n in old_qs]
+        scores = self.ranker.score_batch(query_text, texts, self.INSTRUCT_QUERY) or []
+        for nid_old, s in zip(old_qs, scores):
+            w = self._safe_weight(s)
+            if w > 0:
+                self.G.add_edge(q_tmp, nid_old, weight=w)
+                edges_added.append((q_tmp, nid_old))
+        return edges_added
+
+    def _cleanup_temp(self, q_tmp: str, edges: List[Tuple[str, str]]):
+        for u, v in edges:
+            if self.G.has_edge(u, v):
+                self.G.remove_edge(u, v)
+        if self.G.has_node(q_tmp):
+            self.G.remove_node(q_tmp)
+        self.node_types.pop(q_tmp, None)
+        self.contents.pop(q_tmp, None)
+
+    def find_related_trajectories(
+        self,
+        new_query_text: str,
+        top_k: int = 5,
+    ) -> List[Tuple[str, str, float]]:
+        """
+        基于新 query 做一次 LPF 检索，返回 Top-K 相关轨迹 (qid, aid, score)。
+        步骤：
+          1) 将临时节点 q_tmp 加入全图，仅与所有历史 query 建 Q–Q 相似度边
+          2) 在全图上构建 P，并在 q_tmp 位置打脉冲，进行 LPF
+          3) 以每条轨迹得分 = score(q_i) + score(a_i) 排序取 Top-K
+          4) 清理临时节点与边
+        """
+        # 1) 临时节点
+        q_tmp = "_temp_query_node_"
+        if q_tmp in self.G:
+            self.G.remove_node(q_tmp)
+        self.G.add_node(q_tmp)
+        self.node_types[q_tmp] = 'query'
+        self.contents[q_tmp] = new_query_text
+
+        temp_edges = self._temp_connect_query(q_tmp, new_query_text)
+
+        # 图规模检查
+        if self.G.number_of_nodes() <= 1:
+            self._cleanup_temp(q_tmp, temp_edges)
+            return []
+
+        # 2) 全图节点列表（固定顺序）
+        nodes = list(self.G.nodes)
         idx = {n: i for i, n in enumerate(nodes)}
+
+        # 3) P 与 LPF（在全图）
+        P = self._norm_adj(self.G, nodelist=nodes)
         s = np.zeros((len(nodes), 1))
-        s[idx[q_new]] = 1
-        lp = self._low_pass(s, P)
-        q_indices = [i for i, n in enumerate(nodes) if self.node_types.get(n) == 'query' and n != q_new]
-        
-        k2_queries = []
-        if q_indices:
-            q_scores = lp[q_indices, 0]
-            # Get top k2 indices relative to the q_indices list
-            top_k2_local_indices = np.argsort(q_scores)[-k2:][::-1]
-            # Map back to original nodes list
-            k2_queries = [nodes[q_indices[i]] for i in top_k2_local_indices]
-        
-        # 4) HPF + MMR 找 k3 个多样 thoughts/solutions
-        hp = self._high_pass(s, P)
-        ts_indices = [i for i, n in enumerate(nodes) if self.node_types.get(n) in {'thought', 'solution'}]
-        diverse = []
-        if ts_indices:
-            ts_scores = hp[ts_indices, 0]
-            ts_nodes = [nodes[i] for i in ts_indices]
-            # Normalize scores for MMR if needed, though MMR is rank-based
-            normalized_scores = (ts_scores - ts_scores.min()) / (ts_scores.max() - ts_scores.min() + 1e-9)
-            diverse = self._mmr(normalized_scores, ts_nodes, top_k=k3)
-        
-        self._cleanup(q_new, temp_edges)
-        return list(k1_queries), k2_queries, diverse
-    
-    def _cleanup(self, q_new, edges):
-        if self.G.has_node(q_new):
-            self.G.remove_node(q_new)
-        if q_new in self.node_types: del self.node_types[q_new]
-        if q_new in self.contents: del self.contents[q_new]
-        self.node_counter -= 1
-    
-    def find_k1_queries(self, new_query_text: str, top_k: int = 3) -> List[str]:
-        """
-        Finds the top_k most similar query nodes from the graph based on a new query text.
+        s[idx[q_tmp]] = 1.0
+        lp = self._low_pass(s, P, order=self.lpf_order).ravel()
 
-        Args:
-            new_query_text (str): The new user query.
-            top_k (int): The number of similar queries to return.
-
-        Returns:
-            List[str]: A list of node IDs for the most similar queries.
-        """
-        # 1. Get all existing query nodes
-        all_queries_nodes = [nid for nid, ntype in self.node_types.items() if ntype == 'query']
-        
-        if not all_queries_nodes:
-            return []
-        
-        # Ensure we don't request more queries than exist
-        k = min(top_k, len(all_queries_nodes))
-        if k == 0:
-            return []
-        
-        # 2. Get the content of all historical queries
-        all_queries_content = [self.contents[nid] for nid in all_queries_nodes]
-        
-        # 3. Calculate similarity scores using the class's reranker instance
-        scores = self.ranker.score_batch(new_query_text, all_queries_content, self.INSTRUCT_QUERY)
-        
-        # 4. Get the indices of the top k most similar queries
-        top_k_indices = np.argsort(scores)[-k:][::-1]
-        
-        # 5. Select and return the top k query node IDs
-        k1_queries = [all_queries_nodes[i] for i in top_k_indices]
-        
-        return k1_queries
-    
-    def build_fewshot_prompt(self, retrieved_node_ids: list, max_examples: int = 3) -> str:
-        """
-        根据 find_nodes 返回的所有节点ID，重建因果链并构建Few-shot Prompt。
-
-        Args:
-            retrieved_node_ids (list): find_nodes返回的所有相关节点ID的列表 (k1+k2+k3)。
-            max_examples (int): 最多构建多少个完整的问答示例。
-
-        Returns:
-            str: 格式化后的Few-shot Prompt字符串。
-        """
-        prompt_parts = []
-        
-        # 将所有检索到的节点ID放入一个集合中，以便快速查找
-        retrieved_set = set(retrieved_node_ids)
-        
-        # 示例的入口点是所有被检索到的 query 节点
-        entry_points = sorted([nid for nid in retrieved_set if self.node_types.get(nid) == 'query'])
-        
-        # 用一个集合来追踪哪些节点已经被用掉，避免重复构建
-        used_nodes = set()
-        example_count = 0
-        
-        for qid in entry_points:
-            if qid in used_nodes or example_count >= max_examples:
+        # 4) 轨迹联合得分：score(traj_i) = LPF(q_i) + LPF(a_i)
+        traj_scores = []
+        for qid in nodes:
+            if self.node_types.get(qid) != 'query' or qid == q_tmp:
                 continue
-            
-            # --- 开始构建一个完整的示例 ---
-            example_parts = []
-            
-            # 1. 添加Query部分
-            q_content = self.contents.get(qid, "")
-            example_parts.append(f"<|im_start|>user\n{q_content}<|im_end|>")
-            example_parts.append(f"<|im_start|>assistant")
-            used_nodes.add(qid)
-            
-            # 2. 寻找并添加所有与该Query相连、且同时也被检索到的Thought节点
-            #    这是实现因果关系的关键
-            child_thoughts = [
-                tid for tid in sorted(self.G.successors(qid))
-                if tid in retrieved_set and self.node_types.get(tid) == 'thought'
-            ]
-            
-            all_thoughts_content = []
-            all_solutions_content = []
-            
-            for tid in child_thoughts:
-                if tid in used_nodes: continue
-                
-                all_thoughts_content.append(self.contents.get(tid, ""))
-                used_nodes.add(tid)
-                
-                # 3. 为这个Thought寻找所有与它相连、且同时也被检索到的Solution节点
-                child_solutions = [
-                    sid for sid in sorted(self.G.successors(tid))
-                    if sid in retrieved_set and self.node_types.get(sid) == 'solution'
-                ]
-                for sid in child_solutions:
-                    if sid in used_nodes: continue
-                    all_solutions_content.append(self.contents.get(sid, ""))
-                    used_nodes.add(sid)
-            
-            # 4. 组装Assistant的回答部分，支持一对多
-            if all_thoughts_content:
-                full_thought_content = "\n".join(all_thoughts_content)
-                example_parts.append(f"<think>{full_thought_content}</think>")
-            
-            if all_solutions_content:
-                full_solution_content = "\n".join(all_solutions_content)
-                example_parts.append(f"<python>\n{full_solution_content}\n</python>")
-            
-            # 将完整拼接好的一个示例加入列表
-            prompt_parts.append("\n".join(example_parts))
-            example_count += 1
-        
-        return "\n---\n".join(prompt_parts)
+            aid = self.pair.get(qid)
+            if aid is None:
+                continue
+            iq = idx.get(qid)
+            ia = idx.get(aid)
+            if iq is None or ia is None:
+                continue
+            score = float(lp[iq]) + float(lp[ia])
+            traj_scores.append((qid, aid, score))
 
-    def find_nodes_only_from_query(self, k1_queries: List[str]) -> tuple[List[str], List[str], List[str]]:
+        traj_scores.sort(key=lambda x: x[2], reverse=True)
+        top = traj_scores[:top_k]
+
+        # 5) 清理
+        self._cleanup_temp(q_tmp, temp_edges)
+        return top
+
+    # --------------------------- Few-shot 拼装（可选） ---------------------------
+
+    def build_fewshot_prompt(
+        self,
+        existing_prompt,
+        traj_list: List[Tuple[str, str, float]],
+        max_examples: int = 3
+    ) -> str:
         """
-        A simplified retrieval method that directly finds child nodes for a given list of query IDs.
-
-        This function bypasses the complex LPF/HPF filtering. For each query in k1_queries,
-        it finds its first associated 'thought' and that thought's first 'solution'.
-
-        Args:
-            k1_queries (List[str]): A list of query node IDs to start from.
-
-        Returns:
-            tuple[List[str], List[str], List[str]]: A tuple (k1, k2, k3) to maintain
-            compatibility with build_fewshot_prompt.
-            - k1: The original input list of k1_queries.
-            - k2: Also the list of k1_queries, as these are the primary nodes found.
-            - k3: A list of the found 'thought' and 'solution' node IDs.
+        根据 find_related_trajectories 的返回 (qid, aid, score) 构建 few-shot。
         """
-        # This list will store the retrieved thought and solution nodes for k3
-        retrieved_ts_nodes = []
+        parts = []
+        for qid, aid, _ in traj_list[:max_examples]:
+            q = self.contents.get(qid, "")
+            a = self.contents.get(aid, "")
+            parts.append(
+                f"<|im_start|>user\n{q}<|im_end|>\n"
+                f"<|im_start|>assistant\n{a}<|im_end|>"
+            )
 
-        # Iterate through each of the provided top query IDs
-        for qid in k1_queries:
-            # Find direct child nodes of type 'thought'
-            child_thoughts = [
-                tid for tid in self.G.successors(qid)
-                if self.node_types.get(tid) == 'thought'
-            ]
+        fewshot_prefix = "\n\n".join(parts)
 
-            # Per your request, even if there are multiple, only take the first one
-            if child_thoughts:
-                tid = child_thoughts[0]
-                retrieved_ts_nodes.append(tid)
+        system_prompt = _extract_between(existing_prompt, "<|im_start|>system", "<|im_end|>", default="")
+        system_prompt = "<|im_start|>system" + "\n\n" + system_prompt + "\n" + "<|im_end|>"
+        new_query_prompt = _extract_between(existing_prompt, "<|im_start|>user", "<|im_end|>", default="")
+        new_query_prompt = "<|im_start|>user" + "\n\n" + new_query_prompt + "\n" + "<|im_end|>" + "\n" + "<|im_start|>assistant" + "\n"
+        ret_prompt = system_prompt + "\n\n" + fewshot_prefix + "\n\n" + new_query_prompt
 
-                # Now, find the first 'solution' child of that specific 'thought'
-                child_solutions = [
-                    sid for sid in self.G.successors(tid)
-                    if self.node_types.get(sid) == 'solution'
-                ]
-                if child_solutions:
-                    sid = child_solutions[0]
-                    retrieved_ts_nodes.append(sid)
-
-        # Return in the same format as find_nodes to ensure compatibility
-        # k1 and k2 will both be the list of queries, k3 will be their children.
-        # Use set() to ensure uniqueness of nodes in k3.
-        return k1_queries, k1_queries, list(set(retrieved_ts_nodes))
-
-
+        return ret_prompt
 
 # =================================================================================
 # PART 3: New Demo Block

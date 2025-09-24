@@ -67,7 +67,7 @@ class Inference():
             print(f"Use Memory")
             self.ranker    = QwenReranker()           # 可选传 device/torch_dtype
             # self.graph_mgr = RetrievalGraphNX(use_prob_sampling=False)
-            self.graph_mgr = KnowledgeGraph(ranker=self.ranker, alpha=0.6)
+            self.graph_mgr = KnowledgeGraph(ranker=self.ranker)
         else:
             print(f"Do Not Use Memory")
 
@@ -147,22 +147,22 @@ In the last part of the answer, the final exact answer is enclosed within \\boxe
             if self.args.use_memory:
                 for i in range(len(prompts)):
                     q_only = extract_query(prompts[i])  # 不带提示词的“问题”
-                    all_queries_nodes = [nid for nid, ntype in self.graph_mgr.node_types.items() if ntype == 'query']
+                    
+                    if self.graph_mgr.a_count > 3:
+                        hits = self.graph_mgr.find_related_trajectories(q_only, top_k=3)
+                        prompt_with_fewshot = self.graph_mgr.build_fewshot_prompt(prompts[i], hits, max_examples=3)
+                        print(f">>> Query: {q_only}")
+                        print(f" ")
+                        
 
-                    if len(all_queries_nodes) >= 3:
-                        new_query_text = extract_query(prompts[i])
-                        k1_queries = self.graph_mgr.find_k1_queries(new_query_text, top_k=3)
-                        if self.args.find_nodes == "q_a":
-                            k1, k2, k3 = self.graph_mgr.find_nodes(new_query_text, k1_queries, k2=3, k3=2)
-                        elif self.args.find_nodes == "q":
-                            k1, k2, k3 = self.graph_mgr.find_nodes_only_from_query(k1_queries)
-                        all_retrieved_nodes = k1 + k2 + k3
-                        fewshot_prefix = self.graph_mgr.build_fewshot_prompt(all_retrieved_nodes, max_examples=2)
-                        print(f">>> Query: {new_query_text}")
-                        print(f">>> Few-shot Prefix: {fewshot_prefix}")
+                        if prompt_with_fewshot:
+                            prompts[i] = prompt_with_fewshot
+                            print("="*50)
+                            print(f">>> Prompt with Few-shot: {prompts[i]}")
+                            print("="*50)
 
-                        if fewshot_prefix:
-                            prompts[i] = fewshot_prefix + "\n\n" + prompts[i]
+                    else:
+                        print(f"Answer count in Graph is {self.graph_mgr.a_count}")
 
 
             concat_prompts_outputs = prompts.copy()  
@@ -382,7 +382,13 @@ In the last part of the answer, the final exact answer is enclosed within \\boxe
                     if correct:
                         # jz0905（位置 B）把刚完成的 trajectory 入库：更新四个 list + 建四类边
                         traj = res[-1]
-                        self.graph_mgr.update_graph(traj["Prompt"], traj["Full_output"])
+                        self.graph_mgr.add_trajectory(traj["Prompt"], traj["Full_output"])
+                        print("="*50)
+                        print(f"The following will be add into graph:")
+                        _q = extract_query(traj["Prompt"])
+                        _a = traj["Full_output"]
+                        print(f"Q:{_q}, A:{_a}")
+                        print("="*50)
                     else:
                         print(f"Not correct, Do not update graph")
 
