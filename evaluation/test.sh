@@ -14,11 +14,11 @@ python run.py \
     --max_tokens 31384 \
     --max_input_len 31384 \
     --output_path ${date}exp_math_result_mem_q_a_200.json \
-    --counts 200 \
-    --batch_size 10 \
+    --counts 20 \
+    --batch_size 1 \
     --find_nodes "q_a" \
     --use_memory \
-    &> ./output_log/${date}_${trail}_q_a_200.txt
+    &> ./output_log/${date}_${trail}_q_a_200_OnlyCode_NoThre.txt
     
 
 # python run.py \

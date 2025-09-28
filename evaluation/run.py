@@ -150,6 +150,11 @@ In the last part of the answer, the final exact answer is enclosed within \\boxe
                     
                     if self.graph_mgr.a_count > 3:
                         hits = self.graph_mgr.find_related_trajectories(q_only, top_k=3)
+                        
+                        score_list_temp = []
+                        for _,_,score in hits:
+                            score_list_temp.append(score)
+
                         prompt_with_fewshot = self.graph_mgr.build_fewshot_prompt(prompts[i], hits, max_examples=3)
                         print(f">>> Query: {q_only}")
                         print(f" ")
@@ -158,6 +163,7 @@ In the last part of the answer, the final exact answer is enclosed within \\boxe
                         if prompt_with_fewshot:
                             prompts[i] = prompt_with_fewshot
                             print("="*50)
+                            print(f">>> Few-shot score: {score_list_temp}")
                             print(f">>> Prompt with Few-shot: {prompts[i]}")
                             print("="*50)
 

@@ -59,9 +59,11 @@ def extract_solution(full_output: str) -> str:
     
     # solution_part = re.sub(result_pattern, "", full_output, flags=re.DOTALL)
     # solution_part = re.sub(answer_pattern, "", solution_part, flags=re.DOTALL)
-    solution_part = full_output
+    # solution_part = full_output
+
+    think_part = _extract_between(full_output, "<python>", "</python>", default="")
     
-    return solution_part.strip()
+    return think_part.strip()
 
 
 class QwenReranker:
@@ -359,13 +361,14 @@ class KnowledgeGraph:
         根据 find_related_trajectories 的返回 (qid, aid, score) 构建 few-shot。
         """
         parts = []
-        for qid, aid, _ in traj_list[:max_examples]:
-            q = self.contents.get(qid, "")
-            a = self.contents.get(aid, "")
-            parts.append(
-                f"<|im_start|>user\n{q}<|im_end|>\n"
-                f"<|im_start|>assistant\n{a}<|im_end|>"
-            )
+        for qid, aid, score in traj_list[:max_examples]:
+            if score > 0:
+                q = self.contents.get(qid, "")
+                a = self.contents.get(aid, "")
+                parts.append(
+                    f"<|im_start|>user\n{q}<|im_end|>\n"
+                    f"<|im_start|>assistant\n{a}<|im_end|>"
+                )
 
         fewshot_prefix = "\n\n".join(parts)
 
