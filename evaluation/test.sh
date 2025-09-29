@@ -1,16 +1,16 @@
-export HIP_VISIBLE_DEVICES="7"
+export HIP_VISIBLE_DEVICES="4"
 export HF_HOME=/workspace/cache
 export TOKENIZERS_PARALLELISM=true
 export PYTHONPATH=/workspace/Tool-Star:$PYTHONPATH
 # module load cuda/11.8
 
-date=0924
+date=0929
 trail=test
 python run.py \
-    --model_path dongguanting/Tool-Star-Qwen-1.5B \
+    --model_path dongguanting/Tool-Star-Qwen-7B \
     --dataset_name math \
     --task math \
-    --gpu_use 0.4 \
+    --gpu_use 0.6 \
     --max_tokens 31384 \
     --max_input_len 31384 \
     --output_path ${date}exp_math_result_mem_q_a_200.json \
@@ -18,7 +18,8 @@ python run.py \
     --batch_size 1 \
     --find_nodes "q_a" \
     --use_memory \
-    &> ./output_log/${date}_${trail}_q_a_200_OnlyCode_NoThre.txt
+    --build_edge_thresh 0.5 \
+    &> ./output_log/${date}_${trail}_q_a_200_OnlyCode_BuildEdgeThresh05.txt
     
 
 # python run.py \
