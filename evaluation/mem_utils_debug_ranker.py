@@ -15,13 +15,13 @@ from typing import List, Tuple, Dict, Optional
 # PART 1: Utilities from 0917_old_memory.py (Text Extraction & Reranker)
 # =================================================================================
 
-# def extract_between(text: str, start_tag: str, end_tag: str, default: str = "") -> str:
+# def _extract_between(text: str, start_tag: str, end_tag: str, default: str = "") -> str:
 #     """Helper to extract text between two tags."""
 #     pat = re.compile(re.escape(start_tag) + r"(.*?)" + re.escape(end_tag), re.DOTALL)
 #     m = pat.search(text or "")
 #     return (m.group(1).strip() if m else default).strip()
 
-def extract_between(text: str, start_tag: str, end_tag: str, default: str = "") -> str:
+def _extract_between(text: str, start_tag: str, end_tag: str, default: str = "") -> str:
     """Helper to extract text between two tags (returns the LAST occurrence)."""
     if not text:
         return default.strip()
@@ -39,14 +39,14 @@ def extract_between(text: str, start_tag: str, end_tag: str, default: str = "") 
 
 def extract_query(prompt_block: str) -> str:
     """Extracts the user question from a prompt block."""
-    return extract_between(prompt_block, "<|im_start|>user", "<|im_end|>", default="")
+    return _extract_between(prompt_block, "<|im_start|>user", "<|im_end|>", default="")
 
 
 # def extract_think(prompt_block: str) -> str:
-#     return extract_between(prompt_block, "<think>", "</think>", default="")
+#     return _extract_between(prompt_block, "<think>", "</think>", default="")
 
 # def extract_solution(prompt_block: str) -> str:
-#     return extract_between(prompt_block, "<think>", "</think>", default="")
+#     return _extract_between(prompt_block, "<think>", "</think>", default="")
 
 
 def extract_solution(full_output: str) -> str:
@@ -61,7 +61,7 @@ def extract_solution(full_output: str) -> str:
     # solution_part = re.sub(answer_pattern, "", solution_part, flags=re.DOTALL)
     # solution_part = full_output
 
-    think_part = extract_between(full_output, "<python>", "</python>", default="")
+    think_part = _extract_between(full_output, "<python>", "</python>", default="")
     
     return think_part.strip()
 
@@ -146,7 +146,7 @@ class KnowledgeGraph:
     """
 
 
-    def __init__(self, ranker, lpf_order: int = 4, args=None):
+    def __init__(self, ranker, lpf_order: int = 4):
         """
         Args:
             ranker: 例如 QwenReranker，需实现 score_batch
@@ -161,7 +161,6 @@ class KnowledgeGraph:
 
         self.ranker = ranker
         self.lpf_order = lpf_order
-        self.args = args
 
     # --------------------------- 基础工具 ---------------------------
 
@@ -219,7 +218,7 @@ class KnowledgeGraph:
             scores = self.ranker.score_batch(query_text, old_q_texts, self.INSTRUCT_QUERY) or []
             for nid_old, s in zip(old_qs, scores):
                 w = self._safe_weight(s)
-                if w > self.args.build_edge_thresh:
+                if w > 0:
                     self.G.add_edge(qid, nid_old, weight=w)
 
         # 连接 A–A
@@ -229,28 +228,10 @@ class KnowledgeGraph:
             scores = self.ranker.score_batch(answer_text, old_a_texts, self.INSTRUCT_ANSWER) or []
             for nid_old, s in zip(old_as, scores):
                 w = self._safe_weight(s)
-                if w > self.args.build_edge_thresh:
+                if w > 0:
                     self.G.add_edge(aid, nid_old, weight=w)
 
         return qid, aid
-
-    def print_graph(self):
-        """
-        打印整个知识图：
-          - 每个节点及其类型和内容
-          - 每条边及其权重（相似度）
-        """
-        print("=== Nodes ===")
-        for nid in self.G.nodes:
-            typ = self.node_types.get(nid, "?")
-            content = self.contents.get(nid, "")
-            print(f"[{nid}] ({typ}): {content}")
-
-        print("\n=== Edges ===")
-        for u, v, data in self.G.edges(data=True):
-            w = data.get("weight", 1.0)
-            print(f"{u} -- {v}  (weight={w:.4f})")
-
 
     # --------------------------- 检索：仅低通滤波（全图） ---------------------------
 
@@ -294,7 +275,7 @@ class KnowledgeGraph:
         scores = self.ranker.score_batch(query_text, texts, self.INSTRUCT_QUERY) or []
         for nid_old, s in zip(old_qs, scores):
             w = self._safe_weight(s)
-            if w > self.args.build_edge_thresh:
+            if w > 0:
                 self.G.add_edge(q_tmp, nid_old, weight=w)
                 edges_added.append((q_tmp, nid_old))
         return edges_added
@@ -391,91 +372,60 @@ class KnowledgeGraph:
 
         fewshot_prefix = "\n\n".join(parts)
 
-        system_prompt = extract_between(existing_prompt, "<|im_start|>system", "<|im_end|>", default="")
+        system_prompt = _extract_between(existing_prompt, "<|im_start|>system", "<|im_end|>", default="")
         system_prompt = "<|im_start|>system" + "\n\n" + system_prompt + "\n" + "<|im_end|>"
-        new_query_prompt = extract_between(existing_prompt, "<|im_start|>user", "<|im_end|>", default="")
+        new_query_prompt = _extract_between(existing_prompt, "<|im_start|>user", "<|im_end|>", default="")
         new_query_prompt = "<|im_start|>user" + "\n\n" + new_query_prompt + "\n" + "<|im_end|>" + "\n" + "<|im_start|>assistant" + "\n"
         ret_prompt = system_prompt + "\n\n" + fewshot_prefix + "\n\n" + new_query_prompt
 
         return ret_prompt
 
-
-
-
-
 # =================================================================================
 # PART 3: New Demo Block
 # =================================================================================
 if __name__ == "__main__":
-    # 1. Initialize the Reranker (requires GPU and transformers library)
-    # Make sure you have run: pip install transformers torch accelerate
-    try:
-        reranker = QwenReranker()
-    except Exception as e:
-        print(f"Could not initialize QwenReranker. Please ensure you have a GPU and required libraries.")
-        print(f"Error: {e}")
-        
-        
-        # As a fallback for CPU testing, we can create a mock reranker
-        class MockReranker:
-            def score_batch(self, query, docs, instruct, **kwargs):
-                print(
-                    f"--- MOCK RERANKER: Comparing '{query[:20]}...' with {len(docs)} docs using instruct '{instruct.split()[1]}' ---")
-                return [np.random.rand() for _ in docs]  # Returns random scores
-        
-        
-        reranker = MockReranker()
-    
-    # 2. Initialize the Knowledge Graph with the reranker and a similarity threshold
-    kg = KnowledgeGraph(ranker=reranker, alpha=0.6)  # Merge if score is >= 0.6
-    
-    # 3. Create dummy data in the new prompt/output format
-    trajectories = [
-        {
-            "prompt": "<|im_start|>user\nHow do I plot a sine wave in Python?<|im_end|>",
-            "Full_output": "<think> To solve the problem \\(10.0000198 \\cdot 5.9999985401 \\cdot 6.9999852\\) and find the result to the nearest whole number, we can use Python to perform the multiplication accurately. Let's calculate it step by step.\n\nFirst, we will multiply the three numbers together, and then we will round the result to the nearest whole number.\n </think><python>\n# Define the numbers\na = 10.0000198\nb = 5.9999985401\nc = 6.9999852\n\n# Perform the multiplication\nresult = a * b * c\n\n# Round the result to the nearest whole number\nnearest_whole_number = round(result)\nprint(nearest_whole_number)\n</python><result>\n420\n</result> <answer>The value of \\(10.0000198 \\cdot 5.9999985401 \\cdot 6.9999852\\) rounded to the nearest whole number is \\(\\boxed{420}\\).</answer>",
-        },
-        {
-            "prompt": "<|im_start|>user\nCan you show me how to visualize a cosine function?<|im_end|>",
-            "Full_output": "<think>  To determine the probability that the sum of the numbers on two fair 6-sided dice is 9, we can follow these steps:\n\n1. **Determine the total number of possible outcomes**: When rolling two 6-sided dice, there are \\(6 \\times 6 = 36\\) possible outcomes.\n2. **Determine the number of favorable outcomes**: We need to count the number of pairs \\((a, b)\\) where \\(a + b = 9\\). The possible pairs are \\((3, 6)\\), \\((4, 5)\\), \\((5, 4)\\), and \\((6, 3)\\). So, there are 4 favorable outcomes.\n3. **Calculate the probability**: The probability is the ratio of the number of favorable outcomes to the total number of possible outcomes. So, the probability is \\(\\frac{4}{36} = \\frac{1}{9}\\).\n\nLet's implement this in Python using sympy to ensure the result is accurate.\n\n </think><python>\nimport sympy as sp\n\n# Total number of possible outcomes when rolling two 6-sided dice\ntotal_outcomes = 6 * 6\n\n# Number of favorable outcomes where the sum is 9\nfavorable_outcomes = 4\n\n# Probability calculation\nprobability = sp.Rational(favorable_outcomes, total_outcomes)\nprint(probability)\n</python><result>\n1/9\n</result> <answer>The probability that the sum rolled is 9 when two fair 6-sided dice are rolled is \\(\\boxed{\\frac{1}{9}}\\).</answer>",
-        },
-        {
-            "prompt": "<|im_start|>user\nHelp me create a scatter plot with random data.<|im_end|>",
-            "Full_output": "<think>  To find the value of \\( x \\) that satisfies the equation \\( 6500 + x - 4500 = 3400 + 2000 \\), we can follow these steps:\n\n1. Simplify both sides of the equation.\n2. Isolate \\( x \\) on one side of the equation.\n\nLet's do this step-by-step.\n\nFirst, simplify both sides of the equation:\n\\[ 6500 - 4500 + x = 3400 + 2000 \\]\n\\[ 2000 + x = 5400 \\]\n\nNext, isolate \\( x \\) by subtracting 2000 from both sides of the equation:\n\\[ x = 5400 - 2000 \\]\n\\[ x = 3400 \\]\n\nSo, the value of \\( x \\) is \\( 3400 \\). Let's verify this by substituting \\( x = 3400 \\) back into the original equation to ensure it holds true.\n\nThe original equation is:\n\\[ 6500 + 3400 - 4500 = 3400 + 2000 \\]\n\nSubstituting \\( x = 3400 \\):\n\\[ 6500 + 3400 - 4500 = 3400 + 2000 \\]\n\\[ 9900 - 4500 = 5400 \\]\n\\[ 5400 = 5400 \\]\n\nSince both sides of the equation are equal, our solution is correct. The value of \\( x \\) is indeed \\( 3400 \\).\n\n</think><answer>The final answer is \\(\\boxed{3400}\\).</answer>",
-        },
-        {
-            "prompt": "<|im_start|>user\nHow to draw a sine curve using Python?<|im_end|>",
-            "Full_output": "<think> To determine the time when Bobbi's mother says they will be there in 7200 seconds, we need to convert this time into hours and then add it to the initial time of 2:30 p.m.\n\nHere's the step-by-step process:\n\n1. Convert 7200 seconds into minutes.\n2. Convert the total time from minutes into hours.\n3. Add the resulting hours to the initial time (2:30 p.m.).\n\nLet's do the calculations in Python:\n </think><python>\nfrom datetime import datetime, timedelta\n\n# Initial time in hours and minutes\ninitial_time = datetime.strptime(\"14:30\", \"%H:%M\")\n\n# Time in seconds after which they will arrive\ntime_in_seconds = 7200\n\n# Convert seconds to minutes\ntime_in_minutes = time_in_seconds // 60\n\n# Convert minutes to hours\ntime_in_hours = time_in_minutes // 60\n\n# Calculate the arrival time\narrival_time = initial_time + timedelta(hours=time_in_hours)\n\n# Format the arrival time as HH:MM\narrival_time_formatted = arrival_time.strftime(\"%H:%M\")\nprint(arrival_time_formatted)\n</python><result>\n16:30\n</result> <answer>The calculation shows that Bobbi's mother is correct, and they will arrive at their destination at \\(\\boxed{16:30}\\) p.m.</answer>",
-        }
+    import torch
+
+    # 初始化 reranker
+    rr = QwenReranker()
+
+    # 定义 instruct / query / 文档
+    instruct = "根据文档内容判断其是否满足查询要求；只能回答 yes 或 no。"
+    query = "该文档是否支持七天无理由退货？"
+    docs = [
+        "本店支持七天无理由退货，商品不影响二次销售即可办理。",
+        "您可在签收后7日内办理退货，无需说明理由。",
+        "我们支持质量问题退货，需在签收后7日内联系客服。",
+        "本店不支持无理由退货，除非存在严重质量问题。",
+        "这是一份关于物流派送范围的说明。",
     ]
-    
-    for traj in trajectories:
-        info = kg.update_graph(traj["prompt"], traj["Full_output"])  # 注意这里大小写
-        if info:
-            print(f"[CHOSEN] Q:{info['qid']}  T:{info['tid']}  S:{info['sid']}  "
-                  f"(merged? {info['merged']})")
 
-    # 5. Test the retrieval functionality
-    all_queries_nodes = [nid for nid, ntype in kg.node_types.items() if ntype == 'query']
+    # 批量打分
+    scores = rr.score_batch(query=query, docs=docs, instruct=instruct, batch_size=2)
 
-    if len(all_queries_nodes) >= 3:
-        new_query_text = "How can I make a plot of a tan function?"
-        k1_queries = kg.find_k1_queries(new_query_text, top_k=3)
+    print("\n========== 结果 ==========")
+    for i, (d, s) in enumerate(zip(docs, scores)):
+        preview = (d[:60] + "…") if len(d) > 60 else d
+        print(f"[#{i}] score={s:.4f} | {preview}")
 
-        print("=" * 60)
-        print(f"Testing retrieval with new query: '{new_query_text}'")
-        print(f"Using context queries (k1): {k1_queries}")
+    # 验证相似说法是否打分更高
+    print("\n========== 排序展示 ==========")
+    ranked = sorted(zip(docs, scores), key=lambda x: x[1], reverse=True)
+    for doc, sc in ranked:
+        preview = (doc[:80] + "…") if len(doc) > 80 else doc
+        print(f"score={sc:.4f} | {preview}")
 
-        k1, k2, k3 = kg.find_nodes(new_query_text, k1_queries, k2=3, k3=2)
 
-        print("\n--- Retrieval Results ---")
-        print(f"Top 3 similar queries (external context): {k1}")
-        print(f"Top 3 LPF similar queries from graph:    {k2}")
-        print(f"Top 2 HPF diverse thoughts/solutions:    {k3}")
+# ========== 结果 ==========
+# [#0] score=0.9883 | 本店支持七天无理由退货，商品不影响二次销售即可办理。
+# [#1] score=0.9727 | 您可在签收后7日内办理退货，无需说明理由。
+# [#2] score=0.4375 | 我们支持质量问题退货，需在签收后7日内联系客服。
+# [#3] score=0.1406 | 本店不支持无理由退货，除非存在严重质量问题。
+# [#4] score=0.0002 | 这是一份关于物流派送范围的说明。
 
-        all_retrieved_nodes = k1 + k2 + k3
-        few_shot_prompt = kg.build_fewshot_prompt(all_retrieved_nodes, max_examples=2)
-
-        # 关键：把 few-shot prompt 原样打出来
-        print("\n--- FEW-SHOT PROMPT ---\n")
-        print(few_shot_prompt)
+# ========== 排序展示 ==========
+# score=0.9883 | 本店支持七天无理由退货，商品不影响二次销售即可办理。
+# score=0.9727 | 您可在签收后7日内办理退货，无需说明理由。
+# score=0.4375 | 我们支持质量问题退货，需在签收后7日内联系客服。
+# score=0.1406 | 本店不支持无理由退货，除非存在严重质量问题。
+# score=0.0002 | 这是一份关于物流派送范围的说明。

@@ -67,7 +67,7 @@ class Inference():
             print(f"Use Memory")
             self.ranker    = QwenReranker()           # 可选传 device/torch_dtype
             # self.graph_mgr = RetrievalGraphNX(use_prob_sampling=False)
-            self.graph_mgr = KnowledgeGraph(ranker=self.ranker)
+            self.graph_mgr = KnowledgeGraph(ranker=self.ranker, args=self.args)
         else:
             print(f"Do Not Use Memory")
 
@@ -395,6 +395,9 @@ In the last part of the answer, the final exact answer is enclosed within \\boxe
                         _a = traj["Full_output"]
                         print(f"Q:{_q}, A:{_a}")
                         print("="*50)
+                        print(f">>> Current Graph:")
+                        self.graph_mgr.print_graph()
+                        print("="*50)
                     else:
                         print(f"Not correct, Do not update graph")
 
@@ -593,6 +596,11 @@ if __name__ == "__main__":
         "--find_nodes",
         type=str,
         default="q_a"
+    )
+    argument_parser.add_argument(
+        "--build_edge_thresh",
+        type=float,
+        default=0.5
     )
     args = argument_parser.parse_args()
 
